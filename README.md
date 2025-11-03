@@ -17,7 +17,7 @@ xfawaPL is not "just another language". We focus on **solving real problems** wi
 
 ## 💡 Design Philosophy
 
-
+```
 #HelloWorld {
 
    fn main() {
@@ -29,7 +29,7 @@ xfawaPL is not "just another language". We focus on **solving real problems** wi
     }
 
 }
-
+```
 
 **We believe**: Code beauty lies in elegant problem-solving—not in how many features it claims to support.
 
