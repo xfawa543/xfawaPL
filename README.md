@@ -34,7 +34,7 @@ xfawaPL is not "just another language". We focus on **solving real problems** wi
 
 ```bash
 
-git clone "https://github.com/xfawa543/xfawaPL" (https://github.com/xfawa543/xfawaPL)
+git clone "https://github.com/xfawa543/xfawaPL"
 
 cd xfawaPL
 ```
