@@ -32,23 +32,23 @@ xfawaPL is not "just another language". We focus on **solving real problems** wi
 
 ### Install Compiler
 
-bash
+```bash
 
 git clone "https://github.com/xfawa543/xfawaPL" (https://github.com/xfawa543/xfawaPL)
 
 cd xfawaPL
-
+```
 
 ### Your First Program
 Create `hello.xf`:
-
+```
 #Welcome {
    fn main() {
      print("Welcome to a new programming paradigm")
      print("Where complexity serves a purpose")
      }
 }
-
+```
 
 Compile & run:
 ```./xfawac0 hello.xf -o hello```
@@ -72,13 +72,14 @@ Compile & run:
 ## 📚 Language Specification
 
 ### Basic Structure
+```
 #ProgramName {
  fn main() {
    // Your logic here
     print("Simplicity is power")
     }
 }
-
+```
 
 ### Currently Supported
 - ✅ Program structure definition
