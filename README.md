@@ -66,7 +66,8 @@ Compile & run:
 - Generates native binaries, direct execution
 
 ### **3. Cross-Platform Native**
-- Windows/Linux/macOS native support
+- Windows native support
+- Linux/macOS Supporting unknown!
 - No VM or interpreter overhead
 
 ## 📚 Language Specification
