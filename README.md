@@ -138,4 +138,4 @@ We measure greatness by:
 
 **Join us in building the future of programming!** 🚀
 
-*Current: Alpha 1.0.0-a.0 - Foundation established*
+*Current: Alpha 1.0.0-a.0 - Foundation establish*
