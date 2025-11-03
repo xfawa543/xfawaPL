@@ -19,15 +19,10 @@ xfawaPL is not "just another language". We focus on **solving real problems** wi
 
 ```
 #HelloWorld {
-
    fn main() {
-
      print("Code should read like poetry")
-
      print("Not like configuration files")
-
     }
-
 }
 ```
 
