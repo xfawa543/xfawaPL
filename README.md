@@ -96,8 +96,8 @@ Compile & run:
 - [x] Program structure parsing
 
 ### Alpha 1.0.0-a.1 (Next Release)
-- [ ] Basic conditional logic foundation
-- [ ] Initial syntax parsing for control structures
+- [ ] if/else embryonic form of
+- [ ] Fix some if/else bug of
 
 ### Future Versions (Planned)
 - [ ] Enhanced control flow features
