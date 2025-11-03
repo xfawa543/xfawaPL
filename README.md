@@ -17,18 +17,12 @@ xfawaPL is not "just another language". We focus on **solving real problems** wi
 
 ## 💡 Design Philosophy
 
-rust
 
-HelloWorld {
-
-fn main() {
-
-print("Code should read like poetry")
-
-print("Not like configuration files")
-
-}
-
+#HelloWorld {
+   fn main() {
+     print("Code should read like poetry")
+     print("Not like configuration files")
+    }
 }
 
 
@@ -48,28 +42,17 @@ cd xfawaPL
 ### Your First Program
 Create `hello.xf`:
 
-rust
-
-Welcome {
-
-fn main() {
-
-print("Welcome to a new programming paradigm")
-
-print("Where complexity serves a purpose")
-
-}
-
+#Welcome {
+   fn main() {
+     print("Welcome to a new programming paradigm")
+     print("Where complexity serves a purpose")
+     }
 }
 
 
 Compile & run:
-
-bash
-
-./xfawac0 hello.xf -o hello
-
-./hello
+```./xfawac0 hello.xf -o hello```
+```./hello```
 
 
 ## 🎯 Technical Highlights
@@ -89,19 +72,11 @@ bash
 ## 📚 Language Specification
 
 ### Basic Structure
-
-rust
-
-ProgramName {
-
-fn main() {
-
-// Your logic here
-
-print("Simplicity is power")
-
-}
-
+#ProgramName {
+ fn main() {
+   // Your logic here
+    print("Simplicity is power")
+    }
 }
 
 
