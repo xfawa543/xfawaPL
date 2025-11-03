@@ -1,4 +1,5 @@
 # xfawa Programming Language
+# Short name xfawaPL
 ## Current alpha phase!
 
 > **Minimalist · Efficient · Future-Proof** - A modern programming language designed for developers who value elegance.
