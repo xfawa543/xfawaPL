@@ -14,7 +14,7 @@
 #endif
 
 #define MAX_CODE_SIZE 65536
-#define VERSION "1.0-alpha"
+#define VERSION "1.0.0-a.0"
 
 typedef enum {
     COMPILE_SUCCESS = 0,
@@ -247,4 +247,5 @@ int main(int argc, char* argv[]) {
         report_error(ERROR_COMPILE_FAILED, "编译失败");
         return ERROR_COMPILE_FAILED;
     }
+
 }
