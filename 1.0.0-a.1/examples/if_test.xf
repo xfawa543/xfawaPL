@@ -1,0 +1,9 @@
+#if_test {
+    a = 18
+    if a == 18 {
+        print("you 18")
+    }
+    else {
+        print("you no 18")
+    }
+}
