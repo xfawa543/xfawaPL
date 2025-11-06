@@ -1,0 +1,143 @@
+XF 编译器 — 更新期间使用的重要命令
+
+此文件列出了近期更新期间使用/需要的命令（编译、测试、运行示例、清理）。
+
+-- 编译翻译器（Windows / PowerShell）
+
+gcc -std=c11 -O2 -Wall xfawac0.c -o xfawac0.exe
+
+-- 运行内置自检（等效于 run_tests.ps1）：
+
+.\xfawac0.exe --self-test
+
+-- 运行原始的 PowerShell 回归测试脚本（如果执行策略阻止，可临时绕过）：
+
+在 PowerShell 中（从仓库根目录）
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+.\run_tests.ps1
+
+-- 使用翻译器编译单个 .xf 文件为 exe 并运行（示例）：
+
+.\xfawac0.exe hello.xf -o hello.exe
+
+.\hello.exe
+
+.\xfawac0.exe if_test.xf -o if_test.exe
+
+.\if_test.exe
+
+.\xfawac0.exe duoblock.xf -o duoblock.exe
+
+.\duoblock.exe
+
+-- 生成并保留中间 C 文件（发出 C 代码）：
+
+.\xfawac0.exe hello.xf --emit-c temp_hello.c --keep-temp -o hello.exe
+
+-- 保留临时文件（防止自动删除 temp_<进程ID>.c）
+
+.\xfawac0.exe hello.xf --keep-temp -o hello.exe
+
+-- 删除生成的中间文件 / 输出文件（清理）
+
+在 PowerShell 中
+
+Remove-Item .\temp_*.c -ErrorAction SilentlyContinue
+
+Remove-Item .\hello.exe -ErrorAction SilentlyContinue
+
+Remove-Item .\if_test.exe -ErrorAction SilentlyContinue
+
+Remove-Item .\duoblock.exe -ErrorAction SilentlyContinue
+
+-- 手动重新运行编译+测试序列（完整流程）：
+
+编译翻译器
+
+gcc -std=c11 -O2 -Wall xfawac0.c -o xfawac0.exe
+
+运行自检
+
+.\xfawac0.exe --self-test
+
+-- 注意 / 故障排除提示
+
+- 如果 PowerShell 中中文字符显示不正确，请确保您的终端/代码页支持 UTF-8；在较旧的控制台上运行 
+"chcp 65001" 切换到 UTF-8，或者使用对 UTF-8 支持更好的 Windows Terminal / PowerShell Core。
+- 生成的程序在向交互式控制台写入时优先使用 WriteConsoleW，并在标准输出被重定向或捕获时回退到转换为控制台输出代码页；这应能减少运行测试或管道传输输出时出现乱码的情况。
+- 如果您希望测试自动清理生成的 exe 文件，可以手动删除它们（使用上述命令），或者请求向翻译器的 
+"--self-test" 实现中添加清理标志。
+
+-- 引用的文件位置
+
+- 翻译器源代码："xfawac0.c"
+- PowerShell 测试脚本："run_tests.ps1"
+- 测试示例源代码："hello.xf", "if_test.xf", "duoblock.xf"
+- 此命令列表文件："UPDATE_COMMANDS.txt"
+
+# XF Compiler — Important commands used during updates
+
+This file lists the commands used/needed during the recent updates (compile, test, run examples, cleanup).
+
+-- Compile the translator (Windows / PowerShell)
+
+gcc -std=c11 -O2 -Wall xfawac0.c -o xfawac0.exe
+
+-- Run the built-in self-test (equivalent to run_tests.ps1):
+
+.\xfawac0.exe --self-test
+
+-- Run the original PowerShell regression script (if execution policy blocks, temporarily bypass):
+
+# In PowerShell (from repository root)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_tests.ps1
+
+-- Use the translator to compile a single .xf to exe and run it (examples):
+
+.\xfawac0.exe hello.xf -o hello.exe
+.\hello.exe
+
+.\xfawac0.exe if_test.xf -o if_test.exe
+.\if_test.exe
+
+.\xfawac0.exe duoblock.xf -o duoblock.exe
+.\duoblock.exe
+
+-- Generate and keep the intermediate C file (emit C):
+
+.\xfawac0.exe hello.xf --emit-c temp_hello.c --keep-temp -o hello.exe
+
+-- Keep temporary files (prevent automatic deletion of temp_<pid>.c)
+
+.\xfawac0.exe hello.xf --keep-temp -o hello.exe
+
+-- Remove generated intermediate / outputs (cleanup)
+
+# From PowerShell
+Remove-Item .\temp_*.c -ErrorAction SilentlyContinue
+Remove-Item .\hello.exe -ErrorAction SilentlyContinue
+Remove-Item .\if_test.exe -ErrorAction SilentlyContinue
+Remove-Item .\duoblock.exe -ErrorAction SilentlyContinue
+
+-- Re-run compile+test sequence manually (full flow):
+
+# compile the translator
+gcc -std=c11 -O2 -Wall xfawac0.c -o xfawac0.exe
+
+# run self-test
+.\xfawac0.exe --self-test
+
+-- Notes / troubleshooting hints
+- If Chinese characters show incorrectly in PowerShell, ensure your terminal/code page supports UTF-8; run `chcp 65001` to switch to UTF-8 on older consoles, or use Windows Terminal / PowerShell Core which better support UTF-8.
+- The generated programs prefer WriteConsoleW when writing to an interactive console and fall back to converting to the console output code page when stdout is redirected or captured; this should reduce garbling when running tests or piping output.
+- If you want the tests to clean up generated exes automatically, either delete them manually (commands above) or request adding a cleanup flag to the translator's `--self-test` implementation.
+
+-- File locations referenced
+- Translator source: `xfawac0.c`
+- PowerShell test script: `run_tests.ps1`
+- Test example sources: `hello.xf`, `if_test.xf`, `duoblock.xf`
+- This command list file: `UPDATE_COMMANDS.txt`
+
