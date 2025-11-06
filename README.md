@@ -91,13 +91,14 @@ Compile & run:
 
 ## 🚧 Development Roadmap
 
-### Alpha 1.0.0-a.0 (Current)
+### Alpha 1.0.0-a.0 (Old version)
 - [x] Core compiler framework
 - [x] Print statement support
 - [x] Program structure parsing
 
-### Alpha 1.0.0-a.1 (Next Release)
-- [ ] if/else embryonic form of
+### Alpha 1.0.0-a.1 (Current)
+- [x] if/else embryonic form of
+- [x] Multi-block code support
 - [ ] Fix some if/else bug of
 
 ### Future Versions (Planned)
