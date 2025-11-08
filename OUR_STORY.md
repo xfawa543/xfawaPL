@@ -32,7 +32,7 @@ xfawaPL 的诞生并非偶然，它承载着一段历史的延续。
 
 随着新语言的构想逐渐清晰，我将"PL"之名赋予了新项目 [xfawaPL](https://github.com/xfawa543/xfawaPL)，而原项目则更名为 **xfawaML**，以更准确地反映其作为胶水语言的本质。这是一种传承，也是一种进化。
 
-"xfawa"这个名字，来源于我曾经的 Minecraft 用户名 **xiaofeng awa543**（小峰awa）。它或许不完美，但它记录着我的起点。**名称是符号，而符号背后，是人为其赋予的意义。**
+"xfawa"这个名字，来源于我曾经的 Minecraft 用户名 **xiaofeng awa543**（小峰awa）它或许不完美，但它记录着我的起点。**名称是符号，而符号背后，是人为其赋予的意义。**
 
 > The birth of xfawaPL was no accident. It carries a legacy.
 >
