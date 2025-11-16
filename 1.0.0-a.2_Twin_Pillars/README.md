@@ -21,6 +21,7 @@ XF AWA Compiler (xfawac) — 简要说明 / Brief
     ..\hello_llvm.exe
     ``
 - 许可证：本项目使用 MIT 许可证（详见 `LICENSE`），版权所有人：`xfawa543`。
+## 此版本并非使用了LLVM后端，并没有编写LLVM IR的转换代码！！！这只是个框架！
 
 English (brief)
 
@@ -43,3 +44,4 @@ English (brief)
     ..\hello_llvm.exe
     ```
 - License: MIT (see `LICENSE`), Copyright (c) 2025 `xfawa543`.
+## This release does not use the llvm backend and does not write LLVM IR conversion code!!! It's just a frame!
