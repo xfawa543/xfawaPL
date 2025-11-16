@@ -1,0 +1,64 @@
+# XF Compiler — Important commands used during updates
+
+This file lists the commands used/needed during the recent updates (compile, test, run examples, cleanup).
+
+-- Compile the translator (Windows / PowerShell)
+
+gcc -std=c11 -O2 -Wall xfawac0.c -o xfawac0.exe
+
+-- Run the built-in self-test (equivalent to run_tests.ps1):
+
+.\xfawac0.exe --self-test
+
+-- Run the original PowerShell regression script (if execution policy blocks, temporarily bypass):
+
+# In PowerShell (from repository root)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run_tests.ps1
+
+-- Use the translator to compile a single .xf to exe and run it (examples):
+
+.\xfawac0.exe hello.xf -o hello.exe
+.\hello.exe
+
+.\xfawac0.exe if_test.xf -o if_test.exe
+.\if_test.exe
+
+.\xfawac0.exe duoblock.xf -o duoblock.exe
+.\duoblock.exe
+
+-- Generate and keep the intermediate C file (emit C):
+
+.\xfawac0.exe hello.xf --emit-c temp_hello.c --keep-temp -o hello.exe
+
+-- Keep temporary files (prevent automatic deletion of temp_<pid>.c)
+
+.\xfawac0.exe hello.xf --keep-temp -o hello.exe
+
+-- Remove generated intermediate / outputs (cleanup)
+
+# From PowerShell
+Remove-Item .\temp_*.c -ErrorAction SilentlyContinue
+Remove-Item .\hello.exe -ErrorAction SilentlyContinue
+Remove-Item .\if_test.exe -ErrorAction SilentlyContinue
+Remove-Item .\duoblock.exe -ErrorAction SilentlyContinue
+
+-- Re-run compile+test sequence manually (full flow):
+
+# compile the translator
+gcc -std=c11 -O2 -Wall xfawac0.c -o xfawac0.exe
+
+# run self-test
+.\xfawac0.exe --self-test
+
+-- Notes / troubleshooting hints
+- If Chinese characters show incorrectly in PowerShell, ensure your terminal/code page supports UTF-8; run `chcp 65001` to switch to UTF-8 on older consoles, or use Windows Terminal / PowerShell Core which better support UTF-8.
+- The generated programs prefer WriteConsoleW when writing to an interactive console and fall back to converting to the console output code page when stdout is redirected or captured; this should reduce garbling when running tests or piping output.
+- If you want the tests to clean up generated exes automatically, either delete them manually (commands above) or request adding a cleanup flag to the translator's `--self-test` implementation.
+
+-- File locations referenced
+- Translator source: `xfawac0.c`
+- PowerShell test script: `run_tests.ps1`
+- Test example sources: `hello.xf`, `if_test.xf`, `duoblock.xf`
+- This command list file: `UPDATE_COMMANDS.txt`
+
