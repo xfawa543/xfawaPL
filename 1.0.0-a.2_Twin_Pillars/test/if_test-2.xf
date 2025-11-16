@@ -1,0 +1,25 @@
+#if_test-2 {
+a = sequential[1...20]    # 顺序访问
+b = random[1...20]        # 随机访问  
+c = reciprocal[1...20]    # 倒数访问
+d = seq[1...20]          # sequential → seq
+e = rnd[1...20]          # random → rnd  
+f = rcp[1...20]          # reciprocal → rcp
+g = sequential[1...20]
+h = random[1...20]
+i = reciprocal[1...20]
+j = seq[1...20]
+k = rnd[1...20]  
+l = rcp[1...20]
+
+if a == 1 {
+    print(“1”)
+}
+}
+#iftest {
+  if b >= 20 {
+    print("满分！！！")
+  }else {
+    print("继续加油")
+  }
+}
