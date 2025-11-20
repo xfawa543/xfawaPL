@@ -119,12 +119,12 @@ Compile & run:
 ### Alpha 1.0.0-a.1 (Current)
 - [x] if/else embryonic form of
 - [x] Multi-block code support
-- [ ] Fix some if/else bug of
+- [x] Fix some if/else bug of
 
-### Future Versions (Planned)
-- [ ] Enhanced control flow features
-- [ ] Advanced language capabilities
-- [ ] Standard library development
+### Alpha 1.0.0-a.2 (Current)
+- [x] LLVM Backend
+- [x] Add Array
+- [x] Upgraded if/else
 
 ## 🔧 Contribution Guidelines
 
