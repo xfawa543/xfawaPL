@@ -103,61 +103,50 @@ Compile & run:
 }
 ```
 
+
 ### Currently Supported
-- ✅ Program structure definition
-- ✅ Main function entry point  
-- ✅ Print statements
+- ✅ Program structure and `main` function
+- ✅ `print` statements
+- ✅ Variables and basic arithmetic
+- ✅ `if/else` conditional logic
 - ✅ Cross-platform compilation
 
-## 🚧 Development Roadmap
+---
 
-### Alpha 1.0.0-a.0 (Initial version)
-- [x] Core compiler framework
-- [x] Print statement support
-- [x] Program structure parsing
+## 🗺️ Version History
 
-### Alpha 1.0.0-a.1 (Old version)
-- [x] if/else embryonic form of
-- [x] Multi-block code support
-- [x] Fix some if/else bug of
+| 版本 | Version |
+| :--- | :--- |
+| **1.0.0-a.0 - 「梦想显化」**<br>编译器成功运行，梦想从第一行代码启航。 | **1.0.0-a.0 - "The Dream Manifested"**<br>The compiler successfully ran, marking the moment the dream manifested itself from the very first line of code. |
+| **1.0.0-a.1 - 「前进烙印」**<br>实现基础控制流，语言初具逻辑能力。 | **1.0.0-a.1 - "The Imprint of Progress"**<br>Implemented basic control flow, leaving a firm imprint of progress as the language gained its initial logical capabilities. |
+| **1.0.0-a.2 - 「双生之柱」**<br>引入LLVM后端，奠定双架构并存格局。 | **1.0.0-a.2 - "Twin Pillars"**<br>Introduced the LLVM backend, establishing the co-existing architecture of the twin pillars. |
+| **1.0.0-a.3 - 「Mod试炼」**<br>*(进行中)* 锤炼与验证LLVM后端。 | **1.0.0-a.3 - "The Mod Trial"**<br>*(In Progress)* To temper and validate the LLVM backend through rigorous trials. |
 
-### Alpha 1.0.0-a.2 (Current)
-- [x] LLVM Backend
-- [x] Add Array
-- [x] Upgraded if/else
+---
 
-## 🔧 Contribution Guidelines
+## 🌍 Our Vision
 
-We welcome contributors passionate about **language design** and **compiler development**!
+> xfawaPL aims to build a **logically clear, highly expressive** programming language that lets developers focus on solving problems, not fighting syntax.
 
-### How to Contribute
-1. Fork this repository
-2. Create a feature branch (`git checkout -b feature/improvement`)
-3. Commit changes (`git commit -m 'Add new feature'`)
-4. Push to branch (`git push origin feature/improvement`)
-5. Open a Pull Request
+We measure our success by:
+- **How intuitively code expresses logic**
+- **How quickly new developers can contribute**
+- **How efficiently ideas become running programs**
+
+---
+
+## 🤝 Join the Journey
+
+We welcome contributors who are passionate about **language design** and **compiler development**!
+
+- 📖 **Explore**: Check the `examples/` directory to see what's possible
+- 🐛 **Report Issues**: Help us improve on [GitHub Issues](https://github.com/xfawa543/xfawaPL/issues)
+- 💡 **Suggest Ideas**: Share what you'd like to see in xfawaPL
 
 ## 📄 License
 
 MIT Licensed - see [LICENSE](LICENSE) for details.
 
-## 🤝 Community & Support
-
-- 📖 **Documentation**: Check `examples/` directory for more
-- 🐛 **Issue Tracking**: [GitHub Issues](https://github.com/xfawa543/xfawaPL/issues)
-- 💡 **Feature Suggestions**: Share your ideas for improvement
-
-## 🌍 Vision Statement
-
-> xfawaPL aims to build a **logically clear, highly expressive** programming language that lets developers focus on solving problems.
-
-We measure greatness by:
-- **Natural intuitive logic expression**
-- **Simple syntax with powerful capabilities**  
-- **Fast compilation with helpful errors**
-
 ---
 
-**Join us in building the future of programming!** 🚀
-
-*Current: Alpha 1.0.0-a.0 - Foundation establish*
+**Together, let's build a future where programming feels natural again.** 🚀
