@@ -70,36 +70,6 @@ xfawaPL 采用了一种独特的协作模式：
 
 ---
 
-## 项目运作模式：作为自动化工程的管理者 / Project Operation Model: Manager of Automated Engineering
-
-xfawaPL 的开发采用了一种精细化的、由人主导的自动化工程模式。我不再仅仅是架构师，更是整个开发流程的设计者与管理者。
-
-我的角色体现在以下几个核心环节：
-1.  **需求定义与规范制定**：我提出核心需求，并提供预先编写好的示例与测试文件（如 `.xf` 文件）作为具体规范。这为整个开发任务设定了明确的目标和蓝图。
-2.  **构建自动化审核流水线**：我建立并主导一个多阶段的自动化流程：
-    *   **AI 实现**：首要的 AI 助手根据我的规范生成初始代码。
-    *   **自动化测试**：生成的代码会立即进入自动测试环节。
-    *   **安全审核**：我亲自审核执行命令的安全性，并最终批准运行，行使关键的控制权。
-    *   **AI 交叉审查**：我将代码交由另一个 AI 进行审查，模拟代码审查流程，以发现潜在问题。
-3.  **最终验收与迭代指令**：自动化流程结束后，我会亲自运行最终成果进行验收。如果结果不符合预期，我将发出修复指令，开启新一轮的迭代循环。我的判断是质量保证的最终标准。
-
-在这个模式中，AI 扮演着高效执行者的角色：它们是实现者、自动化测试员和代码审查员。而我，是定义产品、设计流程、管理团队、掌握最终决定权的管理者。创造的灵魂——设计、规划、判断与责任——始终由我承担。
-
-> The development of xfawaPL employs a sophisticated, human-led model of automated engineering. I am not just an architect, but the designer and manager of the entire development pipeline.
->
-> My role is reflected in these core stages:
-> 1.  **Requirement Definition and Specification:** I define the core requirements and provide pre-written examples and test files (e.g., `.xf` files) as precise specifications. This sets clear goals and a blueprint for the development task.
-> 2.  **Orchestrating an Automated Review Pipeline:** I establish and oversee a multi-stage automated process:
->     *   **AI Implementation:** The primary AI assistant generates initial code based on my specifications.
->     *   **Automated Testing:** The generated code immediately enters an automated testing phase.
->     *   **Security Audit:** I personally review the commands for security and grant final approval to run, exercising critical control.
->     *   **AI Cross-Review:** I submit the code to another AI for review, simulating a code review process to identify potential issues.
-> 3.  **Final Acceptance and Iteration Command:** After the automated pipeline completes, I personally run the final product for acceptance. If the outcome does not meet expectations, I issue instructions for fixes, initiating a new iteration cycle. My judgment is the ultimate standard for quality assurance.
->
-> In this model, AIs act as highly efficient executors: they are implementers, automated testers, and code reviewers. I am the manager who defines the product, designs the process, manages the "team," and holds final decision-making authority. The soul of creation—design, planning, judgment, and responsibility—remains with me.
-
----
-
 ## 邀请 / Invitation
 
 xfawaPL 不是一个完美的项目，但它是一次真诚的尝试。
