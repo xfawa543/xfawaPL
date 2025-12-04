@@ -146,7 +146,7 @@ We welcome contributors who are passionate about **language design** and **compi
 
 ## 📄 License
 
-MIT Licensed - see [LICENSE](LICENSE) for details.
+GPLv3.0 Licensed - see [LICENSE](LICENSE) for details.
 
 ---
 
