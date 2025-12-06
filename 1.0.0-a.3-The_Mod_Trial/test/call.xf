@@ -1,0 +1,23 @@
+// Copyright (c) 2025 xfawaPL contributors
+// Licensed under the GNU General Public License v3.0 - see LICENSE
+
+#block {
+    fn block1() {
+        print("我是复杂功能！！")
+    }
+}
+#block2 {
+    fn call() {
+        $block@block1
+        print("你们好呀，我是调用代码块，我要来破坏地球了")
+        $block3@b3
+        print("再看看你的后面")
+    }
+}
+#block3 {
+    fn b3() {
+        $block2@call
+        print?("看看你后面呢")
+    }
+}
+// 所以 这就是；不论上下，随便调用

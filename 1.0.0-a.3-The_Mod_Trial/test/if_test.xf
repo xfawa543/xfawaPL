@@ -1,0 +1,14 @@
+// Copyright (c) 2025 xfawaPL contributors
+// Licensed under the GNU General Public License v3.0 - see LICENSE
+
+#if_test {
+    fn you_function_name() { //在xfawaPL中，main不代表函数入口，而是名称
+    a = 18
+    if a == 18 {
+        print("you 18")
+    }
+    else {
+        print("you no 18")
+        } 
+    }
+}

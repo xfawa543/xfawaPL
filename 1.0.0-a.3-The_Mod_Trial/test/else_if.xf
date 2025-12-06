@@ -1,0 +1,17 @@
+// Copyright (c) 2025 xfawaPL contributors
+// Licensed under the GNU General Public License v3.0 - see LICENSE
+
+#else_if {
+    fn else_if() {
+        a = rnd[1...100]
+        if a >= 100 {
+            print("good")
+        }
+        else if a = 60 {
+            print("half good")
+        }
+        else {
+            print("no good")
+        }
+    }
+}

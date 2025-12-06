@@ -1,0 +1,24 @@
+# Copyright (c) 2025 xfawaPL contributors
+# Licensed under the GNU General Public License v3.0 - see LICENSE
+
+#comment_test {
+  fn test_all_comments() {
+    // 1. 单独一行的注释
+    print("测试1: 行前注释")
+    
+    print("测试2: 行尾注释") // 这是行尾的注释
+    
+    // 2. 连续的注释行
+    // 这是第一行注释
+    // 这是第二行注释
+    print("测试3: 连续注释后的代码")
+    
+    // 3. 注释中包含特殊字符
+    // 注释内容可以包含任何字符：@#$%^&*()_+[]{}\|;:'",.<>/?
+    print("测试4: 特殊字符注释")
+    
+    // 4. 注释在行首但有缩进
+      // 这是有缩进的注释
+    print("测试5: 缩进注释")
+  }
+}

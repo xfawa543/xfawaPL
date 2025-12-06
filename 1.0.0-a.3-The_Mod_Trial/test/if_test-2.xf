@@ -1,0 +1,33 @@
+// Copyright (c) 2025 xfawaPL contributors
+// Licensed under the GNU General Public License v3.0 - see LICENSE
+
+#if_test-2 {
+  fn you_function_name() { ///在xfawaPL中，main不代表函数入口，而是名称
+a = sequential[1...20]    // 顺序访问
+b = random[1...20]        // 随机访问  
+c = reciprocal[1...20]    // 倒数访问
+d = seq[1...20]          // sequential → seq
+e = rnd[1...20]          // random → rnd  
+f = rcp[1...20]          // reciprocal → rcp
+g = sequential[1...20:2] // 正数访问 步数为2
+h = random[1...20] // 随机访问不支持步数
+i = reciprocal[1...20:2] // 倒数访问 步数为2
+j = seq[1...20:2] // 简写也支持步数，随机简写除外
+k = rnd[1...20:2]  
+l = rcp[1...20:2]
+
+if a == 1 {
+    print(“1”)
+       }
+    }
+}
+#iftest {
+  fn Test() {
+  if b >= 20 {
+    print("满分！！！")
+  }
+  else {
+    print("继续加油")
+     }
+  }
+}

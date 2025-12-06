@@ -1,0 +1,19 @@
+// Copyright (c) 2025 xfawaPL contributors
+// Licensed under the GNU General Public License v3.0 - see LICENSE
+
+#HelloWorld {
+    fn main() {
+        print("你好，世界！")
+        print("114514")
+        print("HelloWorld")
+    }
+}
+#if {
+    a = 18
+    if a == 18 {
+        print("18")
+    }
+    else {
+        print("no 18")
+    }
+}

@@ -1,0 +1,9 @@
+// Copyright (c) 2025 xfawaPL contributors
+// Licensed under the GNU General Public License v3.0 - see LICENSE
+
+#test_comment {
+  fn comment() {
+    print("测试成功") // 这是一行注释
+    print("注释测试")
+  }
+}
