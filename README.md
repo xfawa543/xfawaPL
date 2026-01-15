@@ -6,18 +6,18 @@
 # 💡 创始人寄语 / Founder's Message
 
 **中文**  
-xfawaPL 编译器的绝大部分代码是由 AI 编写的。你或许认为，用 AI 写代码是个馊主意——我理解这种看法，但对我而言，这却是我实现梦想的唯一办法。
+xfawa语言 编译器的绝大部分代码是由 AI 编写的。你或许认为，用 AI 写代码是个馊主意——我理解这种看法，但对我而言，这却是我实现梦想的唯一办法。
 
-因为 xfawaPL 最早只是存在于我的幻想世界。直到有一天，我意识到，如果我不行动，这个梦想终将被时间埋没。于是，我想到了 AI。这或许不是一个完美的办法，但我不希望看到我的梦想就此沉寂。
+因为 xfawa语言 最早只是存在于我的幻想世界。直到有一天，我意识到，如果我不行动，这个梦想终将被时间埋没。于是，我想到了 AI。这或许不是一个完美的办法，但我不希望看到我的梦想就此沉寂。
 
 所以，请理解，我选择利用 AI，是希望赋予梦想一个真实的声音。这是一种在现实约束下的前行方式，但绝不是一种偷懒的方式。
 
 归根结底，使用 AI 本身没有绝对的好坏之分，关键在于你如何看待它。如果你坚决认为这是一个馊主意，那我也无权干涉你的想法。而如果你愿意给这个由梦想和代码共同构筑的世界一次机会，欢迎你的到来。
 
 **English**  
-The vast majority of the xfawaPL compiler's code is written by AI. You might think using AI for coding is a terrible idea—I understand that perspective, but for me, it was the only way to make my dream a reality.
+The vast majority of the xfawa language compiler's code is written by AI. You might think using AI for coding is a terrible idea—I understand that perspective, but for me, it was the only way to make my dream a reality.
 
-Because initially, xfawaPL existed only in the world of my imagination. Until one day, I realized that if I didn't take action, this dream would eventually be buried by time. So, I turned to AI. It might not be a perfect method, but I couldn't bear to see my dream fade into silence.
+Because initially, xfawa language existed only in the world of my imagination. Until one day, I realized that if I didn't take action, this dream would eventually be buried by time. So, I turned to AI. It might not be a perfect method, but I couldn't bear to see my dream fade into silence.
 
 Therefore, please understand that my choice to use AI is an attempt to give my dream a tangible voice. It's a way to move forward within real-world constraints, but it is absolutely not a lazy way.
 
