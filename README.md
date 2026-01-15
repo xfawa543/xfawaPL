@@ -25,11 +25,11 @@ In the end, there's no absolute good or bad in using AI itself; it all depends o
 
 ## 🚀 Core Philosophy
 
-xfawaPL is not "just another language". We focus on **solving real problems** with clean, intentional design—not feature bloat.
+xfawa language is not "just another language". We focus on **solving real problems** with clean, intentional design—not feature bloat.
 
-### **Why xfawaPL?**
+### **Why xfawa language?**
 
-| Feature | Traditional Languages | xfawaPL |
+| Feature | Traditional Languages | xfawa language |
 |---------|----------------------|---------|
 | **Learning Curve** | Complex & lengthy | ⚡ Instant onboarding |
 | **Code Density** | Redundant repetition | 🎯 Expressive power |
@@ -126,7 +126,7 @@ Compile & run:
 
 ## 🌍 Our Vision
 
-> xfawaPL aims to build a **logically clear, highly expressive** programming language that lets developers focus on solving problems, not fighting syntax.
+> xfawa language aims to build a **logically clear, highly expressive** programming language that lets developers focus on solving problems, not fighting syntax.
 
 We measure our success by:
 - **How intuitively code expresses logic**
