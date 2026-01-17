@@ -5,14 +5,14 @@ Open it with Visual Studio Code or Notepad and write the following:
 ```
 
 #HelloWorld {
-fn main() {
-print("HelloWorld")
-}
+   fn main() {
+      print("HelloWorld")
+   }
 }
 
 ```
 
-Then, enter:
+And then open cmd/powershell Input:
 ```
 
 .\xfawac.exe HelloWorld.xf -o HelloWorld.exe
