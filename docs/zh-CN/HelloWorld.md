@@ -8,7 +8,7 @@
    }
 }
 ```
-然后输入
+然后打开命令行/powershell输入
 ```
 .\xfawac.exe HelloWorld.xf -o HelloWorld.exe
 ```
