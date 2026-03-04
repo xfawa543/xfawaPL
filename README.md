@@ -114,7 +114,7 @@ Compile & run:
 
 ## 🗺️ 版本历史记录/Version History
 
-[version](version_history.md)
+## [version_history](version_history.md)
 
 ## 🌍 Our Vision
 
