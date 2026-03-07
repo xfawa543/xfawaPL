@@ -21,6 +21,41 @@ void LLVMCodegen::initBuiltins() {
     llvm::FunctionType* printfType = llvm::FunctionType::get(builder.getInt32Ty(), {builder.getInt8Ty()->getPointerTo()}, true);
     llvm::Function* printfFunc = llvm::Function::Create(printfType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "printf", module.get());
     printfFunc->setCallingConv(llvm::CallingConv::C);
+    
+    llvm::FunctionType* mallocType = llvm::FunctionType::get(builder.getInt8Ty()->getPointerTo(), {builder.getInt64Ty()}, false);
+    llvm::Function::Create(mallocType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "malloc", module.get());
+}
+
+llvm::Type* LLVMCodegen::getLLVMType(VarType type) {
+    switch (type) {
+        case VarType::INT:
+            return builder.getInt32Ty();
+        case VarType::FLOAT:
+            return builder.getFloatTy();
+        case VarType::BOOL:
+            return builder.getInt1Ty();
+        case VarType::ARRAY_INT:
+            return llvm::PointerType::get(builder.getInt32Ty(), 0);
+        case VarType::ARRAY_FLOAT:
+            return llvm::PointerType::get(builder.getFloatTy(), 0);
+        case VarType::ARRAY_BOOL:
+            return llvm::PointerType::get(builder.getInt1Ty(), 0);
+        default:
+            return builder.getInt32Ty();
+    }
+}
+
+llvm::Type* LLVMCodegen::getArrayElementType(VarType type) {
+    switch (type) {
+        case VarType::ARRAY_INT:
+            return builder.getInt32Ty();
+        case VarType::ARRAY_FLOAT:
+            return builder.getFloatTy();
+        case VarType::ARRAY_BOOL:
+            return builder.getInt1Ty();
+        default:
+            return builder.getInt32Ty();
+    }
 }
 
 void LLVMCodegen::initializeTargets() {
@@ -39,6 +74,11 @@ void LLVMCodegen::initializeTargets() {
 
 llvm::Value* LLVMCodegen::codegen(NumberLiteral* expr) {
     return createConstInt(context, llvm::Type::getInt32Ty(context), expr->value);
+}
+
+llvm::Value* LLVMCodegen::codegen(FloatLiteral* expr) {
+    llvm::APFloat apFloat((float)expr->value);
+    return llvm::ConstantFP::get(builder.getFloatTy(), apFloat);
 }
 
 llvm::Value* LLVMCodegen::codegen(BooleanLiteral* expr) {
@@ -194,11 +234,132 @@ llvm::Value* LLVMCodegen::codegen(ArrayRangeExpression* expr) {
     return phi;
 }
 
+llvm::Value* LLVMCodegen::codegen(ArrayLiteral* expr) {
+    if (expr->isRange) {
+        llvm::Value* startVal = codegen(expr->rangeStart.get());
+        if (!startVal) return nullptr;
+        
+        llvm::Value* endVal = codegen(expr->rangeEnd.get());
+        if (!endVal) return nullptr;
+        
+        if (auto* startInt = llvm::dyn_cast<llvm::ConstantInt>(startVal)) {
+            if (auto* endInt = llvm::dyn_cast<llvm::ConstantInt>(endVal)) {
+                int64_t start = startInt->getSExtValue();
+                int64_t end = endInt->getSExtValue();
+                int64_t size = end - start + 1;
+                
+                if (size > 0 && size < 10000) {
+                    llvm::Function* mallocFunc = module->getFunction("malloc");
+                    llvm::Value* allocSize = createConstInt(context, builder.getInt64Ty(), size * 4);
+                    llvm::Value* rawPtr = builder.CreateCall(mallocFunc, {allocSize}, "arr.alloc");
+                    llvm::Value* arrPtr = builder.CreateBitCast(rawPtr, llvm::PointerType::get(builder.getInt32Ty(), 0), "arr.ptr");
+                    
+                    for (int64_t i = 0; i < size; i++) {
+                        llvm::Value* idx = createConstInt(context, builder.getInt64Ty(), i);
+                        llvm::Value* elemPtr = builder.CreateGEP(builder.getInt32Ty(), arrPtr, idx, "elem.ptr");
+                        llvm::Value* val = createConstInt(context, builder.getInt32Ty(), start + i);
+                        builder.CreateStore(val, elemPtr);
+                    }
+                    
+                    return arrPtr;
+                }
+            }
+        }
+        
+        addError("Range array must have constant integer bounds");
+        return nullptr;
+    }
+    
+    size_t size = expr->elements.size();
+    if (size == 0) {
+        return llvm::ConstantPointerNull::get(llvm::PointerType::get(builder.getInt32Ty(), 0));
+    }
+    
+    llvm::Function* mallocFunc = module->getFunction("malloc");
+    llvm::Value* allocSize = createConstInt(context, builder.getInt64Ty(), size * 4);
+    llvm::Value* rawPtr = builder.CreateCall(mallocFunc, {allocSize}, "arr.alloc");
+    llvm::Value* arrPtr = builder.CreateBitCast(rawPtr, llvm::PointerType::get(builder.getInt32Ty(), 0), "arr.ptr");
+    
+    for (size_t i = 0; i < size; i++) {
+        llvm::Value* elemVal = codegen(expr->elements[i].get());
+        if (!elemVal) return nullptr;
+        
+        if (elemVal->getType()->isIntegerTy(1)) {
+            elemVal = builder.CreateZExtOrTrunc(elemVal, builder.getInt32Ty(), "boolext");
+        }
+        
+        llvm::Value* idx = createConstInt(context, builder.getInt64Ty(), i);
+        llvm::Value* elemPtr = builder.CreateGEP(builder.getInt32Ty(), arrPtr, idx, "elem.ptr");
+        builder.CreateStore(elemVal, elemPtr);
+    }
+    
+    return arrPtr;
+}
+
+llvm::Value* LLVMCodegen::codegen(ArrayIndexExpression* expr) {
+    llvm::Value* arrVal = codegen(expr->array.get());
+    if (!arrVal) return nullptr;
+    
+    llvm::Value* idxVal = codegen(expr->index.get());
+    if (!idxVal) return nullptr;
+    
+    int64_t knownArrayLen = 0;
+    if (auto* varExpr = dynamic_cast<VariableExpression*>(expr->array.get())) {
+        auto lenIt = arrayLengths.find(varExpr->name);
+        if (lenIt != arrayLengths.end()) {
+            knownArrayLen = lenIt->second;
+        }
+    }
+    
+    llvm::Value* finalIdx = idxVal;
+    
+    if (auto* constIdx = llvm::dyn_cast<llvm::ConstantInt>(idxVal)) {
+        int64_t idx = constIdx->getSExtValue();
+        if (idx < 0 && knownArrayLen > 0) {
+            int64_t adjustedIdx = knownArrayLen + idx;
+            finalIdx = createConstInt(context, builder.getInt64Ty(), adjustedIdx);
+        } else if (idx < 0) {
+            addWarning("Negative array index without known array length");
+        }
+    } else {
+        if (knownArrayLen > 0) {
+            llvm::Value* negCheck = builder.CreateICmpSLT(idxVal, createConstInt(context, builder.getInt32Ty(), 0), "neg.check");
+            llvm::Value* adjustedIdx = builder.CreateAdd(
+                createConstInt(context, builder.getInt32Ty(), knownArrayLen),
+                idxVal,
+                "adj.idx"
+            );
+            finalIdx = builder.CreateSelect(negCheck, adjustedIdx, idxVal, "final.idx");
+        }
+    }
+    
+    llvm::Value* idxExt = finalIdx;
+    if (finalIdx->getType()->isIntegerTy(32)) {
+        idxExt = builder.CreateSExt(finalIdx, builder.getInt64Ty(), "idx.ext");
+    }
+    
+    llvm::Value* elemPtr = builder.CreateGEP(builder.getInt32Ty(), arrVal, idxExt, "arr.elem.ptr");
+    return builder.CreateLoad(builder.getInt32Ty(), elemPtr, "arr.elem");
+}
+
 llvm::Value* LLVMCodegen::codegen(ExpressionStatement* stmt) {
     return codegen(stmt->expr.get());
 }
 
 llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
+    int64_t arrayLen = 0;
+    if (auto* arrLit = dynamic_cast<ArrayLiteral*>(stmt->value.get())) {
+        if (arrLit->isRange) {
+            if (auto* startInt = dynamic_cast<NumberLiteral*>(arrLit->rangeStart.get())) {
+                if (auto* endInt = dynamic_cast<NumberLiteral*>(arrLit->rangeEnd.get())) {
+                    arrayLen = endInt->value - startInt->value + 1;
+                }
+            }
+        } else {
+            arrayLen = arrLit->elements.size();
+        }
+    }
+    
     llvm::Value* value = codegen(stmt->value.get());
     if (!value) return nullptr;
     
@@ -216,8 +377,31 @@ llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
         }
         
         llvm::Type* valueType = value->getType();
-        if (valueType->isIntegerTy(1)) {
-            valueType = llvm::Type::getInt32Ty(context);
+        VarType actualType = stmt->declaredType;
+        
+        if (stmt->hasExplicitType) {
+            if (valueType->isPointerTy()) {
+                if (stmt->declaredType == VarType::INT) {
+                    actualType = VarType::ARRAY_INT;
+                } else if (stmt->declaredType == VarType::FLOAT) {
+                    actualType = VarType::ARRAY_FLOAT;
+                } else if (stmt->declaredType == VarType::BOOL) {
+                    actualType = VarType::ARRAY_BOOL;
+                }
+            }
+            valueType = getLLVMType(actualType);
+            localTypes[stmt->name] = actualType;
+        } else {
+            if (valueType->isIntegerTy(1)) {
+                valueType = llvm::Type::getInt32Ty(context);
+                localTypes[stmt->name] = VarType::INT;
+            } else if (valueType->isFloatTy()) {
+                localTypes[stmt->name] = VarType::FLOAT;
+            } else if (valueType->isPointerTy()) {
+                localTypes[stmt->name] = VarType::ARRAY_INT;
+            } else {
+                localTypes[stmt->name] = VarType::INT;
+            }
         }
         
         alloca = builder.CreateAlloca(valueType, nullptr, stmt->name.c_str());
@@ -228,9 +412,17 @@ llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
         alloca = it->second;
     }
     
+    if (arrayLen > 0) {
+        arrayLengths[stmt->name] = arrayLen;
+    }
+    
     llvm::Value* storeVal = value;
-    if (storeVal->getType()->isIntegerTy(1)) {
+    llvm::Type* allocaType = alloca->getAllocatedType();
+    
+    if (storeVal->getType()->isIntegerTy(1) && allocaType->isIntegerTy(32)) {
         storeVal = builder.CreateZExtOrTrunc(storeVal, llvm::Type::getInt32Ty(context), "boolstore");
+    } else if (storeVal->getType()->isIntegerTy(32) && allocaType->isIntegerTy(1)) {
+        storeVal = builder.CreateICmpNE(storeVal, createConstInt(context, builder.getInt32Ty(), 0), "inttobool");
     }
     
     builder.CreateStore(storeVal, alloca);
@@ -244,7 +436,15 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
     llvm::Function* printfFunc = module->getFunction("printf");
     if (printfFunc) {
         llvm::Value* formatStr;
-        if (arg->getType()->isIntegerTy()) {
+        llvm::Value* printArg = arg;
+        
+        if (arg->getType()->isFloatTy()) {
+            formatStr = builder.CreateGlobalString("%f\n", "format");
+            printArg = builder.CreateFPExt(arg, builder.getDoubleTy(), "float.ext");
+        } else if (arg->getType()->isIntegerTy(1)) {
+            formatStr = builder.CreateGlobalString("%d\n", "format");
+            printArg = builder.CreateZExtOrTrunc(arg, builder.getInt32Ty(), "bool.ext");
+        } else if (arg->getType()->isIntegerTy()) {
             formatStr = builder.CreateGlobalString("%d\n", "format");
         } else if (arg->getType()->isPointerTy()) {
             formatStr = builder.CreateGlobalString("%s\n", "format");
@@ -252,7 +452,7 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
             formatStr = builder.CreateGlobalString("%d\n", "format");
         }
         llvm::Value* formatPtr = builder.CreateBitCast(formatStr, builder.getInt8Ty()->getPointerTo(), "fmtcast");
-        return builder.CreateCall(printfFunc->getFunctionType(), printfFunc, {formatPtr, arg}, "printfcall");
+        return builder.CreateCall(printfFunc->getFunctionType(), printfFunc, {formatPtr, printArg}, "printfcall");
     }
     
     return arg;
@@ -414,6 +614,104 @@ llvm::Value* LLVMCodegen::codegen(WhileStatement* stmt) {
     return nullptr;
 }
 
+llvm::Value* LLVMCodegen::codegen(ForInStatement* stmt) {
+    llvm::Function* func = builder.GetInsertBlock()->getParent();
+    
+    int64_t arrayLen = 0;
+    bool isRange = false;
+    int64_t rangeStart = 0;
+    
+    if (auto* arrLit = dynamic_cast<ArrayLiteral*>(stmt->iterable.get())) {
+        if (arrLit->isRange) {
+            isRange = true;
+            if (auto* startInt = dynamic_cast<NumberLiteral*>(arrLit->rangeStart.get())) {
+                rangeStart = startInt->value;
+                if (auto* endInt = dynamic_cast<NumberLiteral*>(arrLit->rangeEnd.get())) {
+                    arrayLen = endInt->value - startInt->value + 1;
+                }
+            }
+        } else {
+            arrayLen = arrLit->elements.size();
+        }
+    } else if (auto* varExpr = dynamic_cast<VariableExpression*>(stmt->iterable.get())) {
+        auto lenIt = arrayLengths.find(varExpr->name);
+        if (lenIt != arrayLengths.end()) {
+            arrayLen = lenIt->second;
+        }
+    }
+    
+    llvm::Value* iterable = codegen(stmt->iterable.get());
+    if (!iterable) return nullptr;
+    
+    llvm::AllocaInst* idxAlloca = nullptr;
+    llvm::AllocaInst* varAlloca = nullptr;
+    llvm::AllocaInst* lenAlloca = nullptr;
+    
+    {
+        llvm::IRBuilderBase::InsertPoint ip = builder.saveIP();
+        llvm::BasicBlock* entryBB = &func->getEntryBlock();
+        if (entryBB->empty()) {
+            builder.SetInsertPoint(entryBB);
+        } else {
+            builder.SetInsertPoint(entryBB, entryBB->getFirstInsertionPt());
+        }
+        
+        idxAlloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "for.idx");
+        varAlloca = builder.CreateAlloca(builder.getInt32Ty(), nullptr, stmt->varName.c_str());
+        lenAlloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "for.len");
+        
+        builder.restoreIP(ip);
+    }
+    
+    builder.CreateStore(createConstInt(context, builder.getInt64Ty(), 0), idxAlloca);
+    builder.CreateStore(createConstInt(context, builder.getInt64Ty(), arrayLen), lenAlloca);
+    
+    llvm::BasicBlock* CondBB = llvm::BasicBlock::Create(context, "for.cond", func);
+    llvm::BasicBlock* BodyBB = llvm::BasicBlock::Create(context, "for.body", func);
+    llvm::BasicBlock* ExitBB = llvm::BasicBlock::Create(context, "for.exit", func);
+    
+    builder.CreateBr(CondBB);
+    
+    builder.SetInsertPoint(CondBB);
+    llvm::Value* curIdx = builder.CreateLoad(builder.getInt64Ty(), idxAlloca, "cur.idx");
+    llvm::Value* arrLen = builder.CreateLoad(builder.getInt64Ty(), lenAlloca, "arr.len");
+    llvm::Value* cond = builder.CreateICmpSLT(curIdx, arrLen, "for.cmp");
+    
+    llvm::BasicBlock* PrevLoopEndBB = loopEndBB;
+    loopEndBB = ExitBB;
+    
+    builder.CreateCondBr(cond, BodyBB, ExitBB);
+    
+    builder.SetInsertPoint(BodyBB);
+    
+    llvm::Value* curIdxInBody = builder.CreateLoad(builder.getInt64Ty(), idxAlloca, "cur.idx.body");
+    llvm::Value* elemPtr = builder.CreateGEP(builder.getInt32Ty(), iterable, curIdxInBody, "elem.ptr");
+    llvm::Value* elemVal = builder.CreateLoad(builder.getInt32Ty(), elemPtr, "elem.val");
+    builder.CreateStore(elemVal, varAlloca);
+    
+    locals[stmt->varName] = varAlloca;
+    localTypes[stmt->varName] = VarType::INT;
+    
+    codegen(stmt->body.get());
+    
+    llvm::Value* curIdxForInc = builder.CreateLoad(builder.getInt64Ty(), idxAlloca, "cur.idx.inc");
+    llvm::Value* nextIdx = builder.CreateAdd(curIdxForInc, createConstInt(context, builder.getInt64Ty(), 1), "next.idx");
+    builder.CreateStore(nextIdx, idxAlloca);
+    
+    if (!builder.GetInsertBlock()->getTerminator()) {
+        builder.CreateBr(CondBB);
+    }
+    
+    loopEndBB = PrevLoopEndBB;
+    
+    builder.SetInsertPoint(ExitBB);
+    
+    locals.erase(stmt->varName);
+    localTypes.erase(stmt->varName);
+    
+    return nullptr;
+}
+
 bool LLVMCodegen::codegenProgram(Program* program) {
     for (auto& imp : program->imports) {
         if (!codegen(imp.get())) {
@@ -464,6 +762,7 @@ bool LLVMCodegen::codegen(Module* mod) {
 
 bool LLVMCodegen::codegen(Function* func) {
     locals.clear();
+    localTypes.clear();
     
     std::string funcName = func->ns.empty() ? func->name : (func->ns + ":" + func->name);
     llvm::Function* llvmFunc = module->getFunction(funcName);
@@ -526,6 +825,7 @@ bool LLVMCodegen::codegen(Statement* stmt) {
     if (dynamic_cast<BlockStatement*>(stmt)) return codegen(dynamic_cast<BlockStatement*>(stmt)) != nullptr;
     if (dynamic_cast<IfStatement*>(stmt)) return codegen(dynamic_cast<IfStatement*>(stmt)) != nullptr;
     if (dynamic_cast<WhileStatement*>(stmt)) return codegen(dynamic_cast<WhileStatement*>(stmt)) != nullptr;
+    if (dynamic_cast<ForInStatement*>(stmt)) return codegen(dynamic_cast<ForInStatement*>(stmt)) != nullptr;
     if (dynamic_cast<ImportStatement*>(stmt)) return codegen(dynamic_cast<ImportStatement*>(stmt));
     if (auto* funcDecl = dynamic_cast<FunctionDeclarationStatement*>(stmt)) {
         if (funcDecl->func) {
@@ -542,6 +842,7 @@ bool LLVMCodegen::codegen(ImportStatement* stmt) {
 
 llvm::Value* LLVMCodegen::codegen(Expression* expr) {
     if (auto* e = dynamic_cast<NumberLiteral*>(expr)) return codegen(e);
+    if (auto* e = dynamic_cast<FloatLiteral*>(expr)) return codegen(e);
     if (auto* e = dynamic_cast<BooleanLiteral*>(expr)) return codegen(e);
     if (auto* e = dynamic_cast<StringLiteral*>(expr)) return codegen(e);
     if (auto* e = dynamic_cast<VariableExpression*>(expr)) return codegen(e);
@@ -549,6 +850,8 @@ llvm::Value* LLVMCodegen::codegen(Expression* expr) {
     if (auto* e = dynamic_cast<BinaryOp*>(expr)) return codegen(e);
     if (auto* e = dynamic_cast<CallExpression*>(expr)) return codegen(e);
     if (auto* e = dynamic_cast<ArrayRangeExpression*>(expr)) return codegen(e);
+    if (auto* e = dynamic_cast<ArrayLiteral*>(expr)) return codegen(e);
+    if (auto* e = dynamic_cast<ArrayIndexExpression*>(expr)) return codegen(e);
     return nullptr;
 }
 

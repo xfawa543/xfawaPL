@@ -15,6 +15,7 @@ enum class NodeType {
     
     EXPRESSION,
     NUMBER_LITERAL,
+    FLOAT_LITERAL,
     STRING_LITERAL,
     BOOLEAN_LITERAL,
     VARIABLE_EXPRESSION,
@@ -22,6 +23,8 @@ enum class NodeType {
     UNARY_OP,
     CALL_EXPRESSION,
     ARRAY_RANGE_EXPRESSION,
+    ARRAY_LITERAL,
+    ARRAY_INDEX_EXPRESSION,
     
     STATEMENT,
     PRINT_STATEMENT,
@@ -34,6 +37,8 @@ enum class NodeType {
     IF_STATEMENT,
     IMPORT_STATEMENT,
     FUNCTION_DECLARATION,
+    FOR_IN_STATEMENT,
+    TYPED_ASSIGNMENT_STATEMENT,
     
     DECLARATION,
     VARIABLE_DECLARATION,
@@ -42,6 +47,18 @@ enum class NodeType {
     MODULE,
     PROGRAM
 };
+
+enum class VarType {
+    UNKNOWN,
+    INT,
+    FLOAT,
+    BOOL,
+    ARRAY_INT,
+    ARRAY_FLOAT,
+    ARRAY_BOOL
+};
+
+std::string varTypeToString(VarType type);
 
 std::string nodeTypeToString(NodeType type);
 
@@ -105,6 +122,7 @@ enum class TokenType {
     IDENTIFIER,
     NUMBER_LITERAL,
     STRING_LITERAL,
+    FLOAT_LITERAL,
     
     KEYWORD_FN,
     KEYWORD_IF,
@@ -117,6 +135,10 @@ enum class TokenType {
     KEYWORD_PRINT,
     KEYWORD_IMPORT,
     KEYWORD_PERCENT_IMPORT,
+    KEYWORD_INT,
+    KEYWORD_FLOAT,
+    KEYWORD_BOOL,
+    KEYWORD_FOR,
     
     PUNCTUATOR_LPAREN,
     PUNCTUATOR_RPAREN,

@@ -14,6 +14,7 @@ private:
     std::vector<Token> tokens;
     size_t current;
     std::vector<std::string> errors;
+    std::vector<std::string> warnings;
     
 public:
     explicit Parser(const std::vector<Token>& toks);
@@ -22,6 +23,8 @@ public:
     
     bool hasErrors() const { return !errors.empty(); }
     const std::vector<std::string>& getErrors() const { return errors; }
+    bool hasWarnings() const { return !warnings.empty(); }
+    const std::vector<std::string>& getWarnings() const { return warnings; }
     
 private:
     const Token& peek() const;
@@ -31,18 +34,21 @@ private:
     bool isAtEnd() const;
     void advance();
     void addError(const std::string& message);
+    void addWarning(const std::string& message);
     
     std::unique_ptr<Module> parseModule();
     std::unique_ptr<Function> parseFunction();
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<PrintStatement> parsePrintStatement();
     std::unique_ptr<AssignmentStatement> parseAssignmentStatement();
+    std::unique_ptr<AssignmentStatement> parseTypedAssignmentStatement(VarType type);
     std::unique_ptr<BreakStatement> parseBreakStatement();
     std::unique_ptr<ReturnStatement> parseReturnStatement();
     std::unique_ptr<BlockStatement> parseBlockStatement();
     std::unique_ptr<WhileStatement> parseWhileStatement();
     std::unique_ptr<IfStatement> parseIfStatement();
     std::unique_ptr<ImportStatement> parseImportStatement();
+    std::unique_ptr<ForInStatement> parseForInStatement();
     
     std::unique_ptr<Expression> parseExpression();
     std::unique_ptr<Expression> parseLogicalOr();
@@ -53,6 +59,8 @@ private:
     std::unique_ptr<Expression> parseMultiplicative();
     std::unique_ptr<Expression> parseUnary();
     std::unique_ptr<Expression> parsePrimary();
+    std::unique_ptr<Expression> parseArrayLiteral();
+    std::unique_ptr<Expression> parsePostfix(std::unique_ptr<Expression> expr);
     
     static std::string statementTypeToString(Statement* stmt);
 };

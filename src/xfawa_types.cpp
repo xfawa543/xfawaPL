@@ -2,11 +2,25 @@
 
 namespace xfawa {
 
+std::string varTypeToString(VarType type) {
+    switch (type) {
+        case VarType::UNKNOWN: return "auto";
+        case VarType::INT: return "int";
+        case VarType::FLOAT: return "float";
+        case VarType::BOOL: return "bool";
+        case VarType::ARRAY_INT: return "int[]";
+        case VarType::ARRAY_FLOAT: return "float[]";
+        case VarType::ARRAY_BOOL: return "bool[]";
+        default: return "unknown";
+    }
+}
+
 std::string nodeTypeToString(NodeType type) {
     switch (type) {
         case NodeType::NONE: return "none";
         case NodeType::EXPRESSION: return "expression";
         case NodeType::NUMBER_LITERAL: return "number_literal";
+        case NodeType::FLOAT_LITERAL: return "float_literal";
         case NodeType::STRING_LITERAL: return "string_literal";
         case NodeType::BOOLEAN_LITERAL: return "boolean_literal";
         case NodeType::VARIABLE_EXPRESSION: return "variable_expression";
@@ -14,6 +28,8 @@ std::string nodeTypeToString(NodeType type) {
         case NodeType::UNARY_OP: return "unary_op";
         case NodeType::CALL_EXPRESSION: return "call_expression";
         case NodeType::ARRAY_RANGE_EXPRESSION: return "array_range_expression";
+        case NodeType::ARRAY_LITERAL: return "array_literal";
+        case NodeType::ARRAY_INDEX_EXPRESSION: return "array_index_expression";
         case NodeType::STATEMENT: return "statement";
         case NodeType::PRINT_STATEMENT: return "print_statement";
         case NodeType::EXPRESSION_STATEMENT: return "expression_statement";
@@ -25,6 +41,8 @@ std::string nodeTypeToString(NodeType type) {
         case NodeType::IF_STATEMENT: return "if_statement";
         case NodeType::IMPORT_STATEMENT: return "import_statement";
         case NodeType::FUNCTION_DECLARATION: return "function_declaration";
+        case NodeType::FOR_IN_STATEMENT: return "for_in_statement";
+        case NodeType::TYPED_ASSIGNMENT_STATEMENT: return "typed_assignment_statement";
         case NodeType::DECLARATION: return "declaration";
         case NodeType::VARIABLE_DECLARATION: return "variable_declaration";
         case NodeType::FUNCTION: return "function";
@@ -41,6 +59,7 @@ std::string Token::toString() const {
         case TokenType::IDENTIFIER: typeStr = "identifier"; break;
         case TokenType::NUMBER_LITERAL: typeStr = "number"; break;
         case TokenType::STRING_LITERAL: typeStr = "string"; break;
+        case TokenType::FLOAT_LITERAL: typeStr = "float"; break;
         case TokenType::KEYWORD_FN: typeStr = "fn"; break;
         case TokenType::KEYWORD_IF: typeStr = "if"; break;
         case TokenType::KEYWORD_ELSE: typeStr = "else"; break;
@@ -51,6 +70,10 @@ std::string Token::toString() const {
         case TokenType::KEYWORD_FALSE: typeStr = "false"; break;
         case TokenType::KEYWORD_PRINT: typeStr = "print"; break;
         case TokenType::KEYWORD_IMPORT: typeStr = "import"; break;
+        case TokenType::KEYWORD_INT: typeStr = "int"; break;
+        case TokenType::KEYWORD_FLOAT: typeStr = "float"; break;
+        case TokenType::KEYWORD_BOOL: typeStr = "bool"; break;
+        case TokenType::KEYWORD_FOR: typeStr = "for"; break;
         case TokenType::PUNCTUATOR_LPAREN: typeStr = "("; break;
         case TokenType::PUNCTUATOR_RPAREN: typeStr = ")"; break;
         case TokenType::PUNCTUATOR_LBRACE: typeStr = "{"; break;

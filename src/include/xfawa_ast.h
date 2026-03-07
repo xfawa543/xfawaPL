@@ -32,6 +32,18 @@ public:
     }
 };
 
+class FloatLiteral : public Expression {
+public:
+    double value;
+    
+    FloatLiteral(double val, const SourceLocation& loc = SourceLocation()) 
+        : Expression(NodeType::FLOAT_LITERAL, loc), value(val) {}
+    
+    std::string toString() const override {
+        return std::to_string(value);
+    }
+};
+
 class BooleanLiteral : public Expression {
 public:
     bool value;
@@ -162,6 +174,47 @@ public:
     }
 };
 
+class ArrayLiteral : public Expression {
+public:
+    std::vector<std::unique_ptr<Expression>> elements;
+    bool isRange;
+    std::unique_ptr<Expression> rangeStart;
+    std::unique_ptr<Expression> rangeEnd;
+    
+    ArrayLiteral(std::vector<std::unique_ptr<Expression>> elems, const SourceLocation& loc = SourceLocation())
+        : Expression(NodeType::ARRAY_LITERAL, loc), elements(std::move(elems)), isRange(false) {}
+    
+    ArrayLiteral(std::unique_ptr<Expression> start, std::unique_ptr<Expression> end, const SourceLocation& loc = SourceLocation())
+        : Expression(NodeType::ARRAY_LITERAL, loc), isRange(true), rangeStart(std::move(start)), rangeEnd(std::move(end)) {}
+    
+    std::string toString() const override {
+        if (isRange) {
+            return "[" + rangeStart->toString() + "..." + rangeEnd->toString() + "]";
+        }
+        std::string result = "[";
+        for (size_t i = 0; i < elements.size(); i++) {
+            result += elements[i]->toString();
+            if (i < elements.size() - 1) result += ", ";
+        }
+        result += "]";
+        return result;
+    }
+};
+
+class ArrayIndexExpression : public Expression {
+public:
+    std::unique_ptr<Expression> array;
+    std::unique_ptr<Expression> index;
+    
+    ArrayIndexExpression(std::unique_ptr<Expression> arr, std::unique_ptr<Expression> idx,
+                          const SourceLocation& loc = SourceLocation())
+        : Expression(NodeType::ARRAY_INDEX_EXPRESSION, loc), array(std::move(arr)), index(std::move(idx)) {}
+    
+    std::string toString() const override {
+        return array->toString() + "[" + index->toString() + "]";
+    }
+};
+
 class VariableDeclaration {
 public:
     std::string name;
@@ -199,12 +252,23 @@ class AssignmentStatement : public Statement {
 public:
     std::string name;
     std::unique_ptr<Expression> value;
+    VarType declaredType;
+    bool hasExplicitType;
     
     AssignmentStatement(const std::string& n, std::unique_ptr<Expression> v,
                        const SourceLocation& loc = SourceLocation())
-        : Statement(NodeType::ASSIGNMENT_STATEMENT, loc), name(n), value(std::move(v)) {}
+        : Statement(NodeType::ASSIGNMENT_STATEMENT, loc), name(n), value(std::move(v)), 
+          declaredType(VarType::UNKNOWN), hasExplicitType(false) {}
+    
+    AssignmentStatement(const std::string& n, std::unique_ptr<Expression> v, VarType t,
+                       const SourceLocation& loc = SourceLocation())
+        : Statement(NodeType::ASSIGNMENT_STATEMENT, loc), name(n), value(std::move(v)), 
+          declaredType(t), hasExplicitType(true) {}
     
     std::string toString() const override {
+        if (hasExplicitType) {
+            return varTypeToString(declaredType) + " " + name + " = " + value->toString();
+        }
         return name + " = " + value->toString();
     }
 };
@@ -289,6 +353,21 @@ public:
             result += " else " + elseBranch->toString();
         }
         return result;
+    }
+};
+
+class ForInStatement : public Statement {
+public:
+    std::string varName;
+    std::unique_ptr<Expression> iterable;
+    std::unique_ptr<Statement> body;
+    
+    ForInStatement(const std::string& var, std::unique_ptr<Expression> iter, std::unique_ptr<Statement> b,
+                   const SourceLocation& loc = SourceLocation())
+        : Statement(NodeType::FOR_IN_STATEMENT, loc), varName(var), iterable(std::move(iter)), body(std::move(b)) {}
+    
+    std::string toString() const override {
+        return "for " + varName + " in " + iterable->toString() + " " + body->toString();
     }
 };
 

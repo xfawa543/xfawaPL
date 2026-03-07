@@ -23,7 +23,10 @@ private:
     std::unique_ptr<llvm::Module> module;
     llvm::IRBuilder<> builder;
     std::map<std::string, llvm::AllocaInst*> locals;
+    std::map<std::string, VarType> localTypes;
+    std::map<std::string, int64_t> arrayLengths;
     std::vector<std::string> errors;
+    std::vector<std::string> warnings;
     bool hasMainFunction;
     llvm::BasicBlock* loopEndBB;
     
@@ -41,10 +44,16 @@ public:
     bool verifyModule();
     
     const std::vector<std::string>& getErrors() const { return errors; }
+    const std::vector<std::string>& getWarnings() const { return warnings; }
+    bool hasWarnings() const { return !warnings.empty(); }
     
 private:
     void initBuiltins();
     void addError(const std::string& message) { errors.push_back(message); }
+    void addWarning(const std::string& message) { warnings.push_back(message); }
+    
+    llvm::Type* getLLVMType(VarType type);
+    llvm::Type* getArrayElementType(VarType type);
     
     llvm::Value* codegen(Expression* expr);
     bool codegen(Statement* stmt);
@@ -53,6 +62,7 @@ private:
     bool codegen(ImportStatement* stmt);
     
     llvm::Value* codegen(NumberLiteral* expr);
+    llvm::Value* codegen(FloatLiteral* expr);
     llvm::Value* codegen(BooleanLiteral* expr);
     llvm::Value* codegen(StringLiteral* expr);
     llvm::Value* codegen(VariableExpression* expr);
@@ -60,6 +70,8 @@ private:
     llvm::Value* codegen(BinaryOp* expr);
     llvm::Value* codegen(CallExpression* expr);
     llvm::Value* codegen(ArrayRangeExpression* expr);
+    llvm::Value* codegen(ArrayLiteral* expr);
+    llvm::Value* codegen(ArrayIndexExpression* expr);
     llvm::Value* codegen(ExpressionStatement* stmt);
     llvm::Value* codegen(AssignmentStatement* stmt);
     llvm::Value* codegen(PrintStatement* stmt);
@@ -68,6 +80,7 @@ private:
     llvm::Value* codegen(BlockStatement* stmt);
     llvm::Value* codegen(IfStatement* stmt);
     llvm::Value* codegen(WhileStatement* stmt);
+    llvm::Value* codegen(ForInStatement* stmt);
 };
 
 }

@@ -376,6 +376,12 @@ int main(int argc, char** argv) {
         return 1;
     }
     
+    if (parser.hasWarnings()) {
+        for (const auto& warning : parser.getWarnings()) {
+            xfawa::ErrorReporter::get().addSyntaxWarning(0, 0, warning);
+        }
+    }
+    
     if (!program) {
         xfawa::ErrorReporter::get().addSyntaxError(0, 0, "Failed to parse program");
         xfawa::ErrorReporter::get().printDiagnostics();
@@ -438,6 +444,12 @@ int main(int argc, char** argv) {
         return 1;
     }
     
+    if (codegen.hasWarnings()) {
+        for (const auto& warning : codegen.getWarnings()) {
+            xfawa::ErrorReporter::get().addSyntaxWarning(0, 0, warning);
+        }
+    }
+    
     if (g_debug) {
         module->print(llvm::outs(), nullptr);
     }
@@ -458,8 +470,8 @@ int main(int argc, char** argv) {
     
     std::string objFile = config.intermediate_dir + "/" + outputBaseName + ".o";
     
-    std::string llFile = outputBaseName + ".exe.ll";
-    std::string asmFile = outputBaseName + ".exe.asm";
+    std::string llFile = config.output_dir + "/" + outputBaseName + ".exe.ll";
+    std::string asmFile = config.output_dir + "/" + outputBaseName + ".exe.asm";
     
     if (!codegen.emitObjectFile(objFile, g_emit_llvm, g_emit_asm, llFile, asmFile)) {
         for (const auto& error : codegen.getErrors()) {

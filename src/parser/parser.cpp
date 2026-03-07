@@ -50,6 +50,10 @@ void Parser::addError(const std::string& message) {
     errors.push_back(message + " at line " + std::to_string(peek().location.line));
 }
 
+void Parser::addWarning(const std::string& message) {
+    warnings.push_back(message + " at line " + std::to_string(peek().location.line));
+}
+
 std::unique_ptr<Program> Parser::parseProgram() {
     auto program = std::make_unique<Program>();
     
@@ -197,11 +201,22 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         return parseBreakStatement();
     } else if (peek().is(TokenType::KEYWORD_RETURN)) {
         return parseReturnStatement();
+    } else if (peek().is(TokenType::KEYWORD_FOR)) {
+        return parseForInStatement();
     } else if (peek().is(TokenType::KEYWORD_FN)) {
         SourceLocation loc = peek().location;
         auto func = parseFunction();
         if (!func) return nullptr;
         return std::make_unique<FunctionDeclarationStatement>(std::move(func), loc);
+    } else if (peek().is(TokenType::KEYWORD_INT)) {
+        advance();
+        return parseTypedAssignmentStatement(VarType::INT);
+    } else if (peek().is(TokenType::KEYWORD_FLOAT)) {
+        advance();
+        return parseTypedAssignmentStatement(VarType::FLOAT);
+    } else if (peek().is(TokenType::KEYWORD_BOOL)) {
+        advance();
+        return parseTypedAssignmentStatement(VarType::BOOL);
     } else if (peek().is(TokenType::PUNCTUATOR_LBRACE)) {
         return parseBlockStatement();
     } else if (peek().is(TokenType::IDENTIFIER)) {
@@ -263,7 +278,32 @@ std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement() {
         return nullptr;
     }
     
+    addWarning("Implicit type declaration for variable '" + name + "'. Consider using explicit type declaration (e.g., int " + name + " = ...)");
+    
     return std::make_unique<AssignmentStatement>(name, std::move(expr), loc);
+}
+
+std::unique_ptr<AssignmentStatement> Parser::parseTypedAssignmentStatement(VarType type) {
+    SourceLocation loc = peek().location;
+    
+    if (!consume(TokenType::IDENTIFIER)) {
+        addError("Expected variable name after type");
+        return nullptr;
+    }
+    
+    std::string name = peek(-1).text;
+    
+    if (!consume(TokenType::PUNCTUATOR_EQUAL)) {
+        addError("Expected '=' after variable name");
+        return nullptr;
+    }
+    
+    auto expr = parseExpression();
+    if (!expr) {
+        return nullptr;
+    }
+    
+    return std::make_unique<AssignmentStatement>(name, std::move(expr), type, loc);
 }
 
 std::unique_ptr<BreakStatement> Parser::parseBreakStatement() {
@@ -345,6 +385,38 @@ std::unique_ptr<WhileStatement> Parser::parseWhileStatement() {
     }
     
     return std::make_unique<WhileStatement>(std::move(cond), std::move(body), loc);
+}
+
+std::unique_ptr<ForInStatement> Parser::parseForInStatement() {
+    SourceLocation loc = peek().location;
+    
+    if (!consume(TokenType::KEYWORD_FOR)) {
+        return nullptr;
+    }
+    
+    if (!consume(TokenType::IDENTIFIER)) {
+        addError("Expected variable name after 'for'");
+        return nullptr;
+    }
+    
+    std::string varName = peek(-1).text;
+    
+    if (!consume(TokenType::IDENTIFIER) || peek(-1).text != "in") {
+        addError("Expected 'in' after loop variable");
+        return nullptr;
+    }
+    
+    auto iterable = parseExpression();
+    if (!iterable) {
+        return nullptr;
+    }
+    
+    auto body = parseStatement();
+    if (!body) {
+        return nullptr;
+    }
+    
+    return std::make_unique<ForInStatement>(varName, std::move(iterable), std::move(body), loc);
 }
 
 std::unique_ptr<IfStatement> Parser::parseIfStatement() {
@@ -532,6 +604,11 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return std::make_unique<NumberLiteral>(value, peek(-1).location);
     }
     
+    if (consume(TokenType::FLOAT_LITERAL)) {
+        double value = std::stod(peek(-1).text);
+        return std::make_unique<FloatLiteral>(value, peek(-1).location);
+    }
+    
     if (consume(TokenType::KEYWORD_TRUE)) {
         return std::make_unique<BooleanLiteral>(true, peek(-1).location);
     }
@@ -543,6 +620,10 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
     if (consume(TokenType::STRING_LITERAL)) {
         std::string value = peek(-1).text;
         return std::make_unique<StringLiteral>(value, peek(-1).location);
+    }
+    
+    if (peek().is(TokenType::PUNCTUATOR_LBRACKET)) {
+        return parseArrayLiteral();
     }
     
     if (consume(TokenType::PUNCTUATOR_LPAREN)) {
@@ -592,11 +673,13 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
                 return nullptr;
             }
             
+            std::unique_ptr<Expression> result;
             if (ns.empty()) {
-                return std::make_unique<CallExpression>(name, std::move(args), loc);
+                result = std::make_unique<CallExpression>(name, std::move(args), loc);
             } else {
-                return std::make_unique<CallExpression>(name, ns, std::move(args), loc);
+                result = std::make_unique<CallExpression>(name, ns, std::move(args), loc);
             }
+            return parsePostfix(std::move(result));
         }
         
         if (consume(TokenType::PUNCTUATOR_LBRACKET)) {
@@ -607,8 +690,12 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
             }
             
             if (!consume(TokenType::PUNCTUATOR_DOT_DOT_DOT)) {
-                addError("Expected '...' in array range");
-                return nullptr;
+                if (!consume(TokenType::PUNCTUATOR_RBRACKET)) {
+                    addError("Expected ']' after array index");
+                    return nullptr;
+                }
+                auto varExpr = std::make_unique<VariableExpression>(name, loc);
+                return std::make_unique<ArrayIndexExpression>(std::move(varExpr), std::move(startExpr), loc);
             }
             
             auto endExpr = parseExpression();
@@ -625,11 +712,82 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
             return std::make_unique<ArrayRangeExpression>(name, std::move(startExpr), std::move(endExpr), loc);
         }
         
-        return std::make_unique<VariableExpression>(name, loc);
+        auto varExpr = std::make_unique<VariableExpression>(name, loc);
+        return parsePostfix(std::move(varExpr));
     }
     
     addError("Expected expression, got: " + peek().toString());
     return nullptr;
+}
+
+std::unique_ptr<Expression> Parser::parseArrayLiteral() {
+    SourceLocation loc = peek().location;
+    
+    if (!consume(TokenType::PUNCTUATOR_LBRACKET)) {
+        return nullptr;
+    }
+    
+    if (peek().is(TokenType::PUNCTUATOR_RBRACKET)) {
+        advance();
+        return std::make_unique<ArrayLiteral>(std::vector<std::unique_ptr<Expression>>(), loc);
+    }
+    
+    auto firstExpr = parseExpression();
+    if (!firstExpr) {
+        return nullptr;
+    }
+    
+    if (consume(TokenType::PUNCTUATOR_DOT_DOT_DOT)) {
+        auto endExpr = parseExpression();
+        if (!endExpr) {
+            addError("Expected expression after '...' in range");
+            return nullptr;
+        }
+        
+        if (!consume(TokenType::PUNCTUATOR_RBRACKET)) {
+            addError("Expected ']' after range");
+            return nullptr;
+        }
+        
+        return std::make_unique<ArrayLiteral>(std::move(firstExpr), std::move(endExpr), loc);
+    }
+    
+    std::vector<std::unique_ptr<Expression>> elements;
+    elements.push_back(std::move(firstExpr));
+    
+    while (consume(TokenType::PUNCTUATOR_COMMA)) {
+        auto elem = parseExpression();
+        if (!elem) {
+            return nullptr;
+        }
+        elements.push_back(std::move(elem));
+    }
+    
+    if (!consume(TokenType::PUNCTUATOR_RBRACKET)) {
+        addError("Expected ']' after array elements");
+        return nullptr;
+    }
+    
+    return std::make_unique<ArrayLiteral>(std::move(elements), loc);
+}
+
+std::unique_ptr<Expression> Parser::parsePostfix(std::unique_ptr<Expression> expr) {
+    while (peek().is(TokenType::PUNCTUATOR_LBRACKET)) {
+        advance();
+        auto indexExpr = parseExpression();
+        if (!indexExpr) {
+            return nullptr;
+        }
+        
+        if (!consume(TokenType::PUNCTUATOR_RBRACKET)) {
+            addError("Expected ']' after array index");
+            return nullptr;
+        }
+        
+        expr = std::make_unique<ArrayIndexExpression>(std::move(expr), std::move(indexExpr), expr->location);
+    }
+    
+    return expr;
 }
 
 std::unique_ptr<ImportStatement> Parser::parseImportStatement() {

@@ -19,7 +19,11 @@ const std::vector<std::pair<std::string, TokenType>> Lexer::keywords = {
     {"false", TokenType::KEYWORD_FALSE},
     {"print", TokenType::KEYWORD_PRINT},
     {"import", TokenType::KEYWORD_IMPORT},
-    {"%import", TokenType::KEYWORD_PERCENT_IMPORT}
+    {"%import", TokenType::KEYWORD_PERCENT_IMPORT},
+    {"int", TokenType::KEYWORD_INT},
+    {"float", TokenType::KEYWORD_FLOAT},
+    {"bool", TokenType::KEYWORD_BOOL},
+    {"for", TokenType::KEYWORD_FOR}
 };
 
 const std::vector<std::pair<std::string, TokenType>> Lexer::punctuatuators = {
@@ -58,6 +62,7 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::IDENTIFIER: return "identifier";
         case TokenType::NUMBER_LITERAL: return "number";
         case TokenType::STRING_LITERAL: return "string";
+        case TokenType::FLOAT_LITERAL: return "float";
         case TokenType::KEYWORD_FN: return "fn";
         case TokenType::KEYWORD_IF: return "if";
         case TokenType::KEYWORD_ELSE: return "else";
@@ -68,6 +73,10 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::KEYWORD_FALSE: return "false";
         case TokenType::KEYWORD_PRINT: return "print";
         case TokenType::KEYWORD_IMPORT: return "import";
+        case TokenType::KEYWORD_INT: return "int";
+        case TokenType::KEYWORD_FLOAT: return "float";
+        case TokenType::KEYWORD_BOOL: return "bool";
+        case TokenType::KEYWORD_FOR: return "for";
         case TokenType::PUNCTUATOR_LPAREN: return "(";
         case TokenType::PUNCTUATOR_RPAREN: return ")";
         case TokenType::PUNCTUATOR_LBRACE: return "{";
@@ -187,10 +196,25 @@ void Lexer::lexIdentifier() {
 void Lexer::lexNumber() {
     int start_column = column;
     std::string text;
+    bool isFloat = false;
+    
     while (!isAtEnd() && std::isdigit(peek())) {
         text += advance();
     }
-    addToken(TokenType::NUMBER_LITERAL, text);
+    
+    if (!isAtEnd() && peek() == '.' && std::isdigit(peek(1))) {
+        isFloat = true;
+        text += advance();
+        while (!isAtEnd() && std::isdigit(peek())) {
+            text += advance();
+        }
+    }
+    
+    if (isFloat) {
+        addToken(TokenType::FLOAT_LITERAL, text);
+    } else {
+        addToken(TokenType::NUMBER_LITERAL, text);
+    }
 }
 
 void Lexer::lexString() {
