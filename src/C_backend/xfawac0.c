@@ -1,9 +1,5 @@
 #ifndef XF_LICENSE_HEADER
 #define XF_LICENSE_HEADER
-/*
- * Copyright (c) 2025 xfawaPL contributors
- * Licensed under the GNU General Public License v3.0 - see LICENSE for details.
- */
 #endif
 
 #include <stdio.h>
