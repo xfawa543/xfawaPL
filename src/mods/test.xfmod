@@ -1,7 +1,0 @@
-#mod_test {
-    fn mod() {
-        "if" = "wiw"
-        "print" = "pr"
-        "else" = "-wiw"
-    }
-}
