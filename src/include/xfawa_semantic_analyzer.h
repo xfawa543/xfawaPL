@@ -26,11 +26,16 @@ private:
     std::vector<std::string> warnings;
     std::unordered_map<std::string, FunctionInfo> publicFunctions;
     std::unordered_map<std::string, FunctionInfo> privateFunctions;
+    std::unordered_map<std::string, FunctionInfo> allFunctions;
     std::string currentModule;
     
 public:
     bool analyze(Program* program) {
         if (!program) return false;
+        
+        for (const auto& mod : program->modules) {
+            collectModuleFunctions(mod.get());
+        }
         
         for (const auto& mod : program->modules) {
             if (!analyzeModule(mod.get())) {
@@ -47,6 +52,31 @@ public:
     const std::vector<std::string>& getWarnings() const { return warnings; }
     
 private:
+    void collectModuleFunctions(Module* mod) {
+        if (!mod) return;
+        
+        for (const auto& func : mod->functions) {
+            std::string key = func->ns.empty() ? 
+                (mod->name + ":" + func->name) : 
+                (func->ns + ":" + func->name);
+            
+            FunctionInfo info;
+            info.name = func->name;
+            info.ns = func->ns;
+            info.moduleName = mod->name;
+            info.paramCount = static_cast<int>(func->params.size());
+            info.isPublic = !func->ns.empty();
+            info.location = func->location;
+            
+            allFunctions[key] = info;
+            
+            if (info.isPublic) {
+                publicFunctions[key] = info;
+            } else {
+                privateFunctions[key] = info;
+            }
+        }
+    }
     bool analyzeModule(Module* mod) {
         if (!mod) return false;
         
@@ -199,6 +229,20 @@ private:
     bool analyzeCallExpression(CallExpression* call) {
         if (!call) return true;
         
+        if (call->name == "rnd") {
+            if (call->args.size() != 1 && call->args.size() != 2) {
+                errors.push_back("rnd() requires 1 (array) or 2 (min, max) arguments at line " + 
+                    std::to_string(call->location.line));
+                return false;
+            }
+            for (const auto& arg : call->args) {
+                if (!analyzeExpression(arg.get())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
         if (!call->ns.empty()) {
             if (NamespacePolicy::isReserved(call->ns)) {
                 errors.push_back(NamespacePolicy::getReservedNamespacesError(call->ns) + 
@@ -221,9 +265,18 @@ private:
         } else {
             std::string key = currentModule + ":" + call->name;
             if (privateFunctions.find(key) == privateFunctions.end()) {
-                errors.push_back("Undefined function: " + call->name + 
-                    " at line " + std::to_string(call->location.line));
-                return false;
+                bool found = false;
+                for (const auto& pair : allFunctions) {
+                    if (pair.second.name == call->name) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    errors.push_back("Undefined function: " + call->name + 
+                        " at line " + std::to_string(call->location.line));
+                    return false;
+                }
             }
         }
         

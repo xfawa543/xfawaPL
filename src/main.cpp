@@ -41,7 +41,7 @@ namespace xfawa {
     int g_debug_global = 0;
 }
 
-const char* COMPILER_VERSION = "1.0.0-a.5";
+const char* COMPILER_VERSION = "1.0.0-a.6";
 const char* MODS_KERNEL_VERSION = "mods-a-1.0.1";
 
 xfawa::ErrorSystem* xfawa::ErrorReporter::instance = nullptr;
@@ -470,8 +470,8 @@ int main(int argc, char** argv) {
     
     std::string objFile = config.intermediate_dir + "/" + outputBaseName + ".o";
     
-    std::string llFile = config.output_dir + "/" + outputBaseName + ".exe.ll";
-    std::string asmFile = config.output_dir + "/" + outputBaseName + ".exe.asm";
+    std::string llFile = outputBaseName + ".exe.ll";
+    std::string asmFile = outputBaseName + ".exe.asm";
     
     if (!codegen.emitObjectFile(objFile, g_emit_llvm, g_emit_asm, llFile, asmFile)) {
         for (const auto& error : codegen.getErrors()) {

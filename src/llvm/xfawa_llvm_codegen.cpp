@@ -24,6 +24,18 @@ void LLVMCodegen::initBuiltins() {
     
     llvm::FunctionType* mallocType = llvm::FunctionType::get(builder.getInt8Ty()->getPointerTo(), {builder.getInt64Ty()}, false);
     llvm::Function::Create(mallocType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "malloc", module.get());
+    
+    llvm::FunctionType* randType = llvm::FunctionType::get(builder.getInt32Ty(), false);
+    llvm::Function::Create(randType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "rand", module.get());
+    
+    llvm::FunctionType* srandType = llvm::FunctionType::get(builder.getVoidTy(), {builder.getInt32Ty()}, false);
+    llvm::Function::Create(srandType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "srand", module.get());
+    
+    llvm::FunctionType* timeType = llvm::FunctionType::get(builder.getInt64Ty(), {builder.getInt64Ty()->getPointerTo()}, false);
+    llvm::Function::Create(timeType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "time", module.get());
+    
+    llvm::FunctionType* clockType = llvm::FunctionType::get(builder.getInt64Ty(), false);
+    llvm::Function::Create(clockType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "clock", module.get());
 }
 
 llvm::Type* LLVMCodegen::getLLVMType(VarType type) {
@@ -165,10 +177,73 @@ llvm::Value* LLVMCodegen::codegen(BinaryOp* expr) {
 }
 
 llvm::Value* LLVMCodegen::codegen(CallExpression* expr) {
+    if (expr->name == "rnd") {
+        if (expr->args.size() == 1) {
+            llvm::Value* arrVal = codegen(expr->args[0].get());
+            if (!arrVal) return nullptr;
+            
+            int64_t knownArrayLen = 0;
+            if (auto* varExpr = dynamic_cast<VariableExpression*>(expr->args[0].get())) {
+                auto lenIt = arrayLengths.find(varExpr->name);
+                if (lenIt != arrayLengths.end()) {
+                    knownArrayLen = lenIt->second;
+                }
+            }
+            
+            llvm::Function* randFunc = module->getFunction("rand");
+            llvm::Value* randVal = builder.CreateCall(randFunc, {}, "rand.val");
+            
+            llvm::Value* arrLen;
+            if (knownArrayLen > 0) {
+                arrLen = createConstInt(context, builder.getInt32Ty(), knownArrayLen);
+            } else {
+                addError("rnd(array): array length must be known at compile time");
+                return nullptr;
+            }
+            
+            llvm::Value* modVal = builder.CreateSRem(randVal, arrLen, "rand.idx");
+            llvm::Value* idxExt = builder.CreateSExt(modVal, builder.getInt64Ty(), "idx.ext");
+            llvm::Value* elemPtr = builder.CreateGEP(builder.getInt32Ty(), arrVal, idxExt, "rnd.elem.ptr");
+            return builder.CreateLoad(builder.getInt32Ty(), elemPtr, "rnd.elem");
+        }
+        else if (expr->args.size() == 2) {
+            llvm::Value* minVal = codegen(expr->args[0].get());
+            if (!minVal) return nullptr;
+            
+            llvm::Value* maxVal = codegen(expr->args[1].get());
+            if (!maxVal) return nullptr;
+            
+            llvm::Function* randFunc = module->getFunction("rand");
+            llvm::Value* randVal = builder.CreateCall(randFunc, {}, "rand.val");
+            
+            llvm::Value* range = builder.CreateSub(maxVal, minVal, "range.sub");
+            range = builder.CreateAdd(range, createConstInt(context, builder.getInt32Ty(), 1), "range.size");
+            llvm::Value* modVal = builder.CreateSRem(randVal, range, "rand.mod");
+            return builder.CreateAdd(modVal, minVal, "rnd.result");
+        }
+        else {
+            addError("rnd() requires 1 (array) or 2 (min, max) arguments");
+            return nullptr;
+        }
+    }
+    
     std::string funcName = expr->ns.empty() ? expr->name : (expr->ns + ":" + expr->name);
     llvm::Function* callee = module->getFunction(funcName);
     if (!callee) {
         callee = module->getFunction(expr->name);
+    }
+    if (!callee && expr->ns.empty()) {
+        for (auto it = module->begin(); it != module->end(); ++it) {
+            std::string fname = it->getName().str();
+            size_t colonPos = fname.find(':');
+            if (colonPos != std::string::npos) {
+                std::string pureName = fname.substr(colonPos + 1);
+                if (pureName == expr->name) {
+                    callee = &(*it);
+                    break;
+                }
+            }
+        }
     }
     if (!callee) {
         addError("Unknown function: " + funcName);
@@ -790,6 +865,23 @@ bool LLVMCodegen::codegen(Function* func) {
     if (llvmFunc->empty()) {
         llvm::BasicBlock* entryBB = llvm::BasicBlock::Create(context, "entry", llvmFunc);
         builder.SetInsertPoint(entryBB);
+        
+        bool isMain = (func->name == "main" && func->ns.empty());
+        if (isMain) {
+            llvm::Function* timeFunc = module->getFunction("time");
+            llvm::Value* nullPtr = llvm::ConstantPointerNull::get(builder.getInt64Ty()->getPointerTo());
+            llvm::Value* timeVal = builder.CreateCall(timeFunc, {nullPtr}, "time.val");
+            llvm::Value* timeCast = builder.CreateTrunc(timeVal, builder.getInt32Ty(), "time.cast");
+            
+            llvm::Function* clockFunc = module->getFunction("clock");
+            llvm::Value* clockVal = builder.CreateCall(clockFunc, {}, "clock.val");
+            llvm::Value* clockCast = builder.CreateTrunc(clockVal, builder.getInt32Ty(), "clock.cast");
+            
+            llvm::Value* seed = builder.CreateXor(timeCast, clockCast, "seed");
+            
+            llvm::Function* srandFunc = module->getFunction("srand");
+            builder.CreateCall(srandFunc, {seed});
+        }
         
         size_t i = 0;
         for (auto& arg : llvmFunc->args()) {

@@ -520,20 +520,14 @@ std::unique_ptr<Expression> Parser::parseRelational() {
     
     while (!isAtEnd()) {
         BinaryOpType op;
-        if (consume(TokenType::PUNCTUATOR_LESS)) {
-            if (consume(TokenType::PUNCTUATOR_EQUAL)) {
-                op = BinaryOpType::LESS_EQUAL;
-            } else {
-                op = BinaryOpType::LESS;
-            }
-        } else if (consume(TokenType::PUNCTUATOR_GREATER)) {
-            if (consume(TokenType::PUNCTUATOR_EQUAL)) {
-                op = BinaryOpType::GREATER_EQUAL;
-            } else {
-                op = BinaryOpType::GREATER;
-            }
+        if (consume(TokenType::PUNCTUATOR_LESS_EQUAL)) {
+            op = BinaryOpType::LESS_EQUAL;
         } else if (consume(TokenType::PUNCTUATOR_GREATER_EQUAL)) {
             op = BinaryOpType::GREATER_EQUAL;
+        } else if (consume(TokenType::PUNCTUATOR_LESS)) {
+            op = BinaryOpType::LESS;
+        } else if (consume(TokenType::PUNCTUATOR_GREATER)) {
+            op = BinaryOpType::GREATER;
         } else {
             break;
         }

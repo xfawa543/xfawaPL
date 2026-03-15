@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <regex>
 
 namespace xfawa {
 
@@ -1171,6 +1172,20 @@ std::string ModsSystem::expandSyntax(const std::string& source) {
         size_t pos = 0;
         
         while ((pos = result.find(pattern, pos)) != std::string::npos) {
+            bool inString = false;
+            size_t checkPos = 0;
+            while (checkPos < pos) {
+                if (result[checkPos] == '"' && (checkPos == 0 || result[checkPos - 1] != '\\')) {
+                    inString = !inString;
+                }
+                checkPos++;
+            }
+            
+            if (inString) {
+                pos++;
+                continue;
+            }
+            
             bool isWordBoundary = true;
             if (pos > 0) {
                 char prevChar = result[pos - 1];
@@ -1283,6 +1298,10 @@ std::string ModsSystem::expandSingleSyntax(const AddedSyntax& syntax,
                                             const std::unordered_map<std::string, std::string>& args) {
     std::string result = syntax.logicCode;
     
+    static int uniqueCounter = 0;
+    uniqueCounter++;
+    std::string suffix = "_" + std::to_string(uniqueCounter);
+    
     if (g_debug_global) {
         std::cerr << "[mods debug] expandSingleSyntax:" << std::endl;
         std::cerr << "  Logic code: " << result << std::endl;
@@ -1306,6 +1325,19 @@ std::string ModsSystem::expandSingleSyntax(const AddedSyntax& syntax,
     if (actionPos != std::string::npos) {
         result.replace(actionPos, 8, matchedContent);
     }
+    
+    std::regex varPattern(R"((_prob_\w+))");
+    std::smatch match;
+    std::string tempResult;
+    std::string::const_iterator searchStart(result.cbegin());
+    
+    while (std::regex_search(searchStart, result.cend(), match, varPattern)) {
+        tempResult += std::string(searchStart, match[0].first);
+        tempResult += match[0].str() + suffix;
+        searchStart = match[0].second;
+    }
+    tempResult += std::string(searchStart, result.cend());
+    result = tempResult;
     
     if (g_debug_global) {
         std::cerr << "  Expanded result: " << result << std::endl;
