@@ -2,6 +2,7 @@
 #define XFAWA_LLVM_CODEGEN_H
 
 #include "xfawa_ast.h"
+#include "xfawa_config.h"
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -20,7 +21,7 @@ namespace xfawa {
 class LLVMCodegen {
 private:
     llvm::LLVMContext& context;
-    std::unique_ptr<llvm::Module> module;
+    llvm::Module* module;
     llvm::IRBuilder<> builder;
     std::map<std::string, llvm::AllocaInst*> locals;
     std::map<std::string, VarType> localTypes;
@@ -29,9 +30,11 @@ private:
     std::vector<std::string> warnings;
     bool hasMainFunction;
     llvm::BasicBlock* loopEndBB;
+    OptimizationLevel optLevel;
     
 public:
     LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod);
+    LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod, OptimizationLevel opt);
     
     static void initializeTargets();
     
@@ -51,6 +54,12 @@ private:
     void initBuiltins();
     void addError(const std::string& message) { errors.push_back(message); }
     void addWarning(const std::string& message) { warnings.push_back(message); }
+    
+    void runOptimizations();
+    void runO0Optimizations();
+    void runO1Optimizations();
+    void runO2Optimizations();
+    void runO3Optimizations();
     
     llvm::Type* getLLVMType(VarType type);
     llvm::Type* getArrayElementType(VarType type);

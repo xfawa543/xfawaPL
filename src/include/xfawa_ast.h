@@ -254,16 +254,17 @@ public:
     std::unique_ptr<Expression> value;
     VarType declaredType;
     bool hasExplicitType;
+    bool isReassignment;
     
     AssignmentStatement(const std::string& n, std::unique_ptr<Expression> v,
                        const SourceLocation& loc = SourceLocation())
         : Statement(NodeType::ASSIGNMENT_STATEMENT, loc), name(n), value(std::move(v)), 
-          declaredType(VarType::UNKNOWN), hasExplicitType(false) {}
+          declaredType(VarType::UNKNOWN), hasExplicitType(false), isReassignment(false) {}
     
     AssignmentStatement(const std::string& n, std::unique_ptr<Expression> v, VarType t,
                        const SourceLocation& loc = SourceLocation())
         : Statement(NodeType::ASSIGNMENT_STATEMENT, loc), name(n), value(std::move(v)), 
-          declaredType(t), hasExplicitType(true) {}
+          declaredType(t), hasExplicitType(true), isReassignment(false) {}
     
     std::string toString() const override {
         if (hasExplicitType) {

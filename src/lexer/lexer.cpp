@@ -213,7 +213,20 @@ void Lexer::lexNumber() {
     if (isFloat) {
         addToken(TokenType::FLOAT_LITERAL, text);
     } else {
-        addToken(TokenType::NUMBER_LITERAL, text);
+        try {
+            unsigned long long value = std::stoull(text);
+            constexpr unsigned long long INT32_MAX_VAL = 2147483647ULL;
+            
+            if (value > INT32_MAX_VAL) {
+                addError("Integer literal '" + text + "' out of range (valid range: 0 to 2147483647 for positive, -2147483648 to -1 via unary minus)");
+                addToken(TokenType::NUMBER_LITERAL, text);
+            } else {
+                addToken(TokenType::NUMBER_LITERAL, text);
+            }
+        } catch (const std::out_of_range&) {
+            addError("Integer literal '" + text + "' out of range (valid range: 0 to 2147483647 for positive, -2147483648 to -1 via unary minus)");
+            addToken(TokenType::NUMBER_LITERAL, text);
+        }
     }
 }
 

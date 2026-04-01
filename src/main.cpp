@@ -36,12 +36,14 @@ static bool g_keep_temp = false;
 static bool g_emit_llvm = false;
 static bool g_emit_asm = false;
 static bool g_use_config = true;
+static xfawa::OptimizationLevel g_opt_level = xfawa::OptimizationLevel::O2;
+static bool g_opt_level_set = false;
 
 namespace xfawa {
     int g_debug_global = 0;
 }
 
-const char* COMPILER_VERSION = "1.0.0-a.6";
+const char* COMPILER_VERSION = "1.0.0-a.8";
 const char* MODS_KERNEL_VERSION = "mods-a-1.0.1";
 
 xfawa::ErrorSystem* xfawa::ErrorReporter::instance = nullptr;
@@ -91,6 +93,10 @@ void printUsage(const char* programName) {
     printf("  -k, --keep             Keep temporary files\n");
     printf("  --emit-llvm            Emit LLVM IR (.ll file)\n");
     printf("  --emit-asm             Emit assembly (.asm file)\n");
+    printf("  -O0                    Disable optimization (for debugging)\n");
+    printf("  -O1                    Enable basic optimization\n");
+    printf("  -O2                    Enable standard optimization (default)\n");
+    printf("  -O3                    Enable aggressive optimization\n");
     printf("  -c, --config <file>    Specify config file\n");
     printf("  -n, --no-config        Don't use config file\n");
     printf("  -v, --version          Show compiler version\n");
@@ -112,6 +118,7 @@ void printConfig(const xfawa::CompilerConfig& config) {
     std::cout << "  Show warning types: " << (config.show_warning_types ? "yes" : "no") << std::endl;
     std::cout << "  Emit LLVM IR: " << (config.emit_ll ? "yes" : "no") << std::endl;
     std::cout << "  Emit ASM: " << (config.emit_asm ? "yes" : "no") << std::endl;
+    std::cout << "  Optimization level: O" << static_cast<int>(config.opt_level) << std::endl;
     std::cout << "  Output directory: " << config.output_dir << std::endl;
     std::cout << "  Intermediate directory: " << config.intermediate_dir << std::endl;
 }
@@ -238,10 +245,22 @@ int main(int argc, char** argv) {
             xfawa::g_debug_global = 1;
         } else if (strcmp(argv[i], "-k") == 0 || strcmp(argv[i], "--keep") == 0) {
             g_keep_temp = true;
-        } else if (strcmp(argv[i], "--emit-llvm") == 0) {
+        } else if (strcmp(argv[i], "--emit-llvm") == 0 || strcmp(argv[i], "--emit-ll") == 0) {
             g_emit_llvm = true;
         } else if (strcmp(argv[i], "--emit-asm") == 0) {
             g_emit_asm = true;
+        } else if (strcmp(argv[i], "-O0") == 0) {
+            g_opt_level = xfawa::OptimizationLevel::O0;
+            g_opt_level_set = true;
+        } else if (strcmp(argv[i], "-O1") == 0) {
+            g_opt_level = xfawa::OptimizationLevel::O1;
+            g_opt_level_set = true;
+        } else if (strcmp(argv[i], "-O2") == 0) {
+            g_opt_level = xfawa::OptimizationLevel::O2;
+            g_opt_level_set = true;
+        } else if (strcmp(argv[i], "-O3") == 0) {
+            g_opt_level = xfawa::OptimizationLevel::O3;
+            g_opt_level_set = true;
         } else if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config") == 0) {
             if (i + 1 < argc) {
                 configFile = argv[i + 1];
@@ -290,8 +309,14 @@ int main(int argc, char** argv) {
             g_emit_asm = true;
         }
         
+        if (g_opt_level_set) {
+            config.opt_level = g_opt_level;
+        }
+        
         xfawa::ErrorReporter::get().setShowWarningTypes(config.show_warning_types);
         xfawa::ErrorReporter::get().setWarningsEnabled(config.warnings);
+    } else {
+        config.opt_level = g_opt_level;
     }
     
     if (g_debug) {
@@ -424,7 +449,7 @@ int main(int argc, char** argv) {
     llvm::LLVMContext context;
     std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>("xfawa_module", context);
     
-    xfawa::LLVMCodegen codegen(context, module.get());
+    xfawa::LLVMCodegen codegen(context, module.get(), config.opt_level);
     
     if (!codegen.codegenProgram(program.get())) {
         for (const auto& error : codegen.getErrors()) {
@@ -468,7 +493,7 @@ int main(int argc, char** argv) {
         outputBaseName = outputBaseName.substr(0, outputBaseName.find_last_of('.'));
     }
     
-    std::string objFile = config.intermediate_dir + "/" + outputBaseName + ".o";
+    std::string objFile = config.intermediate_dir + "\\" + outputBaseName + ".o";
     
     std::string llFile = outputBaseName + ".exe.ll";
     std::string asmFile = outputBaseName + ".exe.asm";

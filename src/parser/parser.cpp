@@ -54,6 +54,14 @@ void Parser::addWarning(const std::string& message) {
     warnings.push_back(message + " at line " + std::to_string(peek().location.line));
 }
 
+bool Parser::isVariableDeclared(const std::string& name) const {
+    return declaredVariables.find(name) != declaredVariables.end();
+}
+
+void Parser::declareVariable(const std::string& name) {
+    declaredVariables.insert(name);
+}
+
 std::unique_ptr<Program> Parser::parseProgram() {
     auto program = std::make_unique<Program>();
     
@@ -278,9 +286,15 @@ std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement() {
         return nullptr;
     }
     
-    addWarning("Implicit type declaration for variable '" + name + "'. Consider using explicit type declaration (e.g., int " + name + " = ...)");
+    bool alreadyDeclared = isVariableDeclared(name);
+    if (!alreadyDeclared) {
+        addWarning("Implicit type declaration for variable '" + name + "'. Consider using explicit type declaration (e.g., int " + name + " = ...)");
+        declareVariable(name);
+    }
     
-    return std::make_unique<AssignmentStatement>(name, std::move(expr), loc);
+    auto stmt = std::make_unique<AssignmentStatement>(name, std::move(expr), loc);
+    stmt->isReassignment = alreadyDeclared;
+    return stmt;
 }
 
 std::unique_ptr<AssignmentStatement> Parser::parseTypedAssignmentStatement(VarType type) {
@@ -302,6 +316,8 @@ std::unique_ptr<AssignmentStatement> Parser::parseTypedAssignmentStatement(VarTy
     if (!expr) {
         return nullptr;
     }
+    
+    declareVariable(name);
     
     return std::make_unique<AssignmentStatement>(name, std::move(expr), type, loc);
 }

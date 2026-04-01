@@ -5,12 +5,20 @@
 
 namespace xfawa {
 
+enum class OptimizationLevel {
+    O0 = 0,
+    O1 = 1,
+    O2 = 2,
+    O3 = 3
+};
+
 struct CompilerConfig {
     bool debug_info = false;
     bool warnings = true;
     bool emit_ll = false;
     bool emit_asm = false;
     bool show_warning_types = true;
+    OptimizationLevel opt_level = OptimizationLevel::O2;
     std::string output_dir = "bin";
     std::string intermediate_dir = "build";
 };

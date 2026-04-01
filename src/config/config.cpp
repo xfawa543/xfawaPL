@@ -35,6 +35,12 @@ void ConfigLoader::parseLine(const std::string& line, CompilerConfig& config) {
     else if (key == "emit_ll") config.emit_ll = (value == "true" || value == "1");
     else if (key == "emit_asm") config.emit_asm = (value == "true" || value == "1");
     else if (key == "show_warning_types") config.show_warning_types = (value == "true" || value == "1");
+    else if (key == "optimization_level" || key == "opt_level") {
+        if (value == "0" || value == "O0") config.opt_level = OptimizationLevel::O0;
+        else if (value == "1" || value == "O1") config.opt_level = OptimizationLevel::O1;
+        else if (value == "2" || value == "O2") config.opt_level = OptimizationLevel::O2;
+        else if (value == "3" || value == "O3") config.opt_level = OptimizationLevel::O3;
+    }
     else if (key == "output_dir") config.output_dir = value;
     else if (key == "intermediate_dir") config.intermediate_dir = value;
 }
@@ -181,12 +187,17 @@ void ConfigLoader::save(const std::string& filepath, const CompilerConfig& confi
         file << "# " << key << "\n" << key << "=" << value << "\n\n";
     };
     
+    auto writeOptLevel = [&file](const char* key, OptimizationLevel level) {
+        file << "# " << key << " (O0, O1, O2, O3)\n" << key << "=O" << static_cast<int>(level) << "\n\n";
+    };
+    
     file << "# xfawac Compiler Configuration File\n\n";
     writeBool("debug_info", config.debug_info);
     writeBool("warnings", config.warnings);
     writeBool("emit_ll", config.emit_ll);
     writeBool("emit_asm", config.emit_asm);
     writeBool("show_warning_types", config.show_warning_types);
+    writeOptLevel("optimization_level", config.opt_level);
     writeString("output_dir", config.output_dir);
     writeString("intermediate_dir", config.intermediate_dir);
     

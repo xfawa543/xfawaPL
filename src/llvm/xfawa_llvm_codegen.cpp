@@ -1,10 +1,35 @@
 #include "xfawa_llvm_codegen.h"
+#include <cstdlib>
+#include <filesystem>
+#include <optional>
 #include <sstream>
 #include <llvm/ADT/APInt.h>
 #include <llvm/MC/TargetRegistry.h>
+#include <llvm/Target/TargetOptions.h>
 #include <llvm/TargetParser/Host.h>
 #include <llvm/TargetParser/Triple.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Analysis/LoopInfo.h>
+#include <llvm/Analysis/ScalarEvolution.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
+#include <llvm/Analysis/TargetTransformInfo.h>
+#include <llvm/IR/Dominators.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/Transforms/Utils.h>
+#include <llvm/Transforms/Utils/Mem2Reg.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/ADCE.h>
+#include <llvm/Transforms/Scalar/DCE.h>
+#include <llvm/Transforms/Scalar/EarlyCSE.h>
+#include <llvm/Transforms/Scalar/SCCP.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
+#include <llvm/Transforms/Utils/LoopSimplify.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <lld/Common/Driver.h>
+
+LLD_HAS_DRIVER(coff)
 
 namespace xfawa {
 
@@ -12,30 +37,125 @@ static llvm::ConstantInt* createConstInt(llvm::LLVMContext& ctx, llvm::IntegerTy
     return static_cast<llvm::ConstantInt*>(llvm::ConstantInt::get(ty, llvm::APInt(ty->getBitWidth(), value, true)));
 }
 
+namespace {
+
+std::unique_ptr<llvm::TargetMachine> createTargetMachine(llvm::Module& module, std::vector<std::string>& errors) {
+    llvm::Triple triple = module.getTargetTriple();
+    if (triple.str().empty()) {
+        triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+        module.setTargetTriple(triple);
+    }
+
+    std::string err;
+    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple, err);
+    if (!target) {
+        errors.push_back("Unable to find target for triple '" + triple.str() + "': " + err);
+        return nullptr;
+    }
+
+    llvm::TargetOptions options;
+    std::optional<llvm::Reloc::Model> relocModel = llvm::Reloc::PIC_;
+    auto targetMachine = std::unique_ptr<llvm::TargetMachine>(
+        target->createTargetMachine(triple, "generic", "", options, relocModel));
+
+    if (!targetMachine) {
+        errors.push_back("Unable to create LLVM target machine for triple '" + triple.str() + "'");
+        return nullptr;
+    }
+
+    module.setDataLayout(targetMachine->createDataLayout());
+    return targetMachine;
+}
+
+bool emitMachineCode(llvm::Module& module, llvm::TargetMachine& targetMachine,
+                     const std::string& path, llvm::CodeGenFileType fileType,
+                     std::vector<std::string>& errors) {
+    std::error_code ec;
+    llvm::raw_fd_ostream dest(path, ec, llvm::sys::fs::OF_None);
+    if (ec) {
+        errors.push_back("Unable to open output file '" + path + "': " + ec.message());
+        return false;
+    }
+
+    llvm::legacy::PassManager passManager;
+    if (targetMachine.addPassesToEmitFile(passManager, dest, nullptr, fileType)) {
+        errors.push_back("LLVM target cannot emit requested file type for '" + path + "'");
+        return false;
+    }
+
+    passManager.run(module);
+    dest.flush();
+    return true;
+}
+
+std::optional<std::filesystem::path> findLatestVersionDir(const std::filesystem::path& root) {
+    if (!std::filesystem::exists(root) || !std::filesystem::is_directory(root)) {
+        return std::nullopt;
+    }
+
+    std::optional<std::filesystem::path> best;
+    for (const auto& entry : std::filesystem::directory_iterator(root)) {
+        if (!entry.is_directory()) {
+            continue;
+        }
+
+        if (!best || entry.path().filename().string() > best->filename().string()) {
+            best = entry.path();
+        }
+    }
+
+    return best;
+}
+
+std::optional<std::filesystem::path> getEnvPath(const char* name) {
+    const char* value = std::getenv(name);
+    if (!value || *value == '\0') {
+        return std::nullopt;
+    }
+
+    return std::filesystem::path(value);
+}
+
+bool appendLibPath(std::vector<std::string>& args, const std::filesystem::path& path) {
+    if (!std::filesystem::exists(path) || !std::filesystem::is_directory(path)) {
+        return false;
+    }
+
+    args.push_back("/libpath:" + path.string());
+    return true;
+}
+
+} // namespace
+
 LLVMCodegen::LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod) 
-    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), loopEndBB(nullptr) {
+    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), loopEndBB(nullptr), optLevel(OptimizationLevel::O2) {
+    initBuiltins();
+}
+
+LLVMCodegen::LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod, OptimizationLevel opt)
+    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), loopEndBB(nullptr), optLevel(opt) {
     initBuiltins();
 }
 
 void LLVMCodegen::initBuiltins() {
     llvm::FunctionType* printfType = llvm::FunctionType::get(builder.getInt32Ty(), {builder.getInt8Ty()->getPointerTo()}, true);
-    llvm::Function* printfFunc = llvm::Function::Create(printfType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "printf", module.get());
+    llvm::Function* printfFunc = llvm::Function::Create(printfType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "printf", module);
     printfFunc->setCallingConv(llvm::CallingConv::C);
     
     llvm::FunctionType* mallocType = llvm::FunctionType::get(builder.getInt8Ty()->getPointerTo(), {builder.getInt64Ty()}, false);
-    llvm::Function::Create(mallocType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "malloc", module.get());
+    llvm::Function::Create(mallocType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "malloc", module);
     
     llvm::FunctionType* randType = llvm::FunctionType::get(builder.getInt32Ty(), false);
-    llvm::Function::Create(randType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "rand", module.get());
+    llvm::Function::Create(randType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "rand", module);
     
     llvm::FunctionType* srandType = llvm::FunctionType::get(builder.getVoidTy(), {builder.getInt32Ty()}, false);
-    llvm::Function::Create(srandType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "srand", module.get());
+    llvm::Function::Create(srandType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "srand", module);
     
     llvm::FunctionType* timeType = llvm::FunctionType::get(builder.getInt64Ty(), {builder.getInt64Ty()->getPointerTo()}, false);
-    llvm::Function::Create(timeType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "time", module.get());
+    llvm::Function::Create(timeType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "time", module);
     
     llvm::FunctionType* clockType = llvm::FunctionType::get(builder.getInt64Ty(), false);
-    llvm::Function::Create(clockType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "clock", module.get());
+    llvm::Function::Create(clockType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "clock", module);
 }
 
 llvm::Type* LLVMCodegen::getLLVMType(VarType type) {
@@ -291,7 +411,7 @@ llvm::Value* LLVMCodegen::codegen(ArrayRangeExpression* expr) {
     llvm::Function* randFunc = module->getFunction("rand");
     if (!randFunc) {
         llvm::FunctionType* randType = llvm::FunctionType::get(builder.getInt32Ty(), false);
-        randFunc = llvm::Function::Create(randType, llvm::Function::ExternalLinkage, 0, "rand", module.get());
+        randFunc = llvm::Function::Create(randType, llvm::Function::ExternalLinkage, 0, "rand", module);
     }
     
     llvm::Value* randVal = builder.CreateCall(randFunc);
@@ -440,51 +560,60 @@ llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
     
     llvm::AllocaInst* alloca = nullptr;
     auto it = locals.find(stmt->name);
-    if (it == locals.end()) {
-        llvm::Function* func = builder.GetInsertBlock()->getParent();
-        llvm::IRBuilderBase::InsertPoint ip = builder.saveIP();
-        
-        llvm::BasicBlock* entryBB = &func->getEntryBlock();
-        if (entryBB->empty()) {
-            builder.SetInsertPoint(entryBB);
-        } else {
-            builder.SetInsertPoint(entryBB, entryBB->getFirstInsertionPt());
+    
+    if (stmt->isReassignment) {
+        if (it == locals.end()) {
+            addError("Variable '" + stmt->name + "' used before declaration");
+            return nullptr;
         }
-        
-        llvm::Type* valueType = value->getType();
-        VarType actualType = stmt->declaredType;
-        
-        if (stmt->hasExplicitType) {
-            if (valueType->isPointerTy()) {
-                if (stmt->declaredType == VarType::INT) {
-                    actualType = VarType::ARRAY_INT;
-                } else if (stmt->declaredType == VarType::FLOAT) {
-                    actualType = VarType::ARRAY_FLOAT;
-                } else if (stmt->declaredType == VarType::BOOL) {
-                    actualType = VarType::ARRAY_BOOL;
+        alloca = it->second;
+    } else {
+        if (it == locals.end()) {
+            llvm::Function* func = builder.GetInsertBlock()->getParent();
+            llvm::IRBuilderBase::InsertPoint ip = builder.saveIP();
+            
+            llvm::BasicBlock* entryBB = &func->getEntryBlock();
+            if (entryBB->empty()) {
+                builder.SetInsertPoint(entryBB);
+            } else {
+                builder.SetInsertPoint(entryBB, entryBB->getFirstInsertionPt());
+            }
+            
+            llvm::Type* valueType = value->getType();
+            VarType actualType = stmt->declaredType;
+            
+            if (stmt->hasExplicitType) {
+                if (valueType->isPointerTy()) {
+                    if (stmt->declaredType == VarType::INT) {
+                        actualType = VarType::ARRAY_INT;
+                    } else if (stmt->declaredType == VarType::FLOAT) {
+                        actualType = VarType::ARRAY_FLOAT;
+                    } else if (stmt->declaredType == VarType::BOOL) {
+                        actualType = VarType::ARRAY_BOOL;
+                    }
+                }
+                valueType = getLLVMType(actualType);
+                localTypes[stmt->name] = actualType;
+            } else {
+                if (valueType->isIntegerTy(1)) {
+                    valueType = llvm::Type::getInt32Ty(context);
+                    localTypes[stmt->name] = VarType::INT;
+                } else if (valueType->isFloatTy()) {
+                    localTypes[stmt->name] = VarType::FLOAT;
+                } else if (valueType->isPointerTy()) {
+                    localTypes[stmt->name] = VarType::ARRAY_INT;
+                } else {
+                    localTypes[stmt->name] = VarType::INT;
                 }
             }
-            valueType = getLLVMType(actualType);
-            localTypes[stmt->name] = actualType;
+            
+            alloca = builder.CreateAlloca(valueType, nullptr, stmt->name.c_str());
+            builder.restoreIP(ip);
+            
+            locals[stmt->name] = alloca;
         } else {
-            if (valueType->isIntegerTy(1)) {
-                valueType = llvm::Type::getInt32Ty(context);
-                localTypes[stmt->name] = VarType::INT;
-            } else if (valueType->isFloatTy()) {
-                localTypes[stmt->name] = VarType::FLOAT;
-            } else if (valueType->isPointerTy()) {
-                localTypes[stmt->name] = VarType::ARRAY_INT;
-            } else {
-                localTypes[stmt->name] = VarType::INT;
-            }
+            alloca = it->second;
         }
-        
-        alloca = builder.CreateAlloca(valueType, nullptr, stmt->name.c_str());
-        builder.restoreIP(ip);
-        
-        locals[stmt->name] = alloca;
-    } else {
-        alloca = it->second;
     }
     
     if (arrayLen > 0) {
@@ -668,6 +797,31 @@ llvm::Value* LLVMCodegen::codegen(WhileStatement* stmt) {
         CondVal = builder.CreateICmpNE(i32Cond, zero, "condcmp");
     }
     
+    if (auto* constBool = llvm::dyn_cast<llvm::ConstantInt>(CondVal)) {
+        if (constBool->isOne()) {
+            builder.CreateBr(BodyBB);
+            func->insert(func->end(), BodyBB);
+            builder.SetInsertPoint(BodyBB);
+            
+            llvm::BasicBlock* PrevLoopEndBB = loopEndBB;
+            loopEndBB = ExitBB;
+            
+            codegen(stmt->body.get());
+            
+            if (!builder.GetInsertBlock()->getTerminator()) {
+                builder.CreateBr(BodyBB);
+            }
+            
+            loopEndBB = PrevLoopEndBB;
+            builder.SetInsertPoint(ExitBB);
+            return nullptr;
+        } else if (constBool->isZero()) {
+            builder.CreateBr(ExitBB);
+            builder.SetInsertPoint(ExitBB);
+            return nullptr;
+        }
+    }
+    
     llvm::BasicBlock* PrevLoopEndBB = loopEndBB;
     loopEndBB = ExitBB;
     
@@ -809,7 +963,7 @@ bool LLVMCodegen::codegenProgram(Program* program) {
                 funcType = llvm::FunctionType::get(llvm::Type::getVoidTy(context), paramTypes, false);
             }
             
-            llvm::Function* llvmFunc = llvm::Function::Create(funcType, llvm::Function::LinkageTypes::ExternalLinkage, 0, func->name, module.get());
+            llvm::Function* llvmFunc = llvm::Function::Create(funcType, llvm::Function::LinkageTypes::ExternalLinkage, 0, func->name, module);
             
             if (isMain) {
                 hasMainFunction = true;
@@ -855,7 +1009,7 @@ bool LLVMCodegen::codegen(Function* func) {
             funcType = llvm::FunctionType::get(llvm::Type::getVoidTy(context), paramTypes, false);
         }
         
-        llvmFunc = llvm::Function::Create(funcType, llvm::Function::LinkageTypes::ExternalLinkage, 0, funcName, module.get());
+        llvmFunc = llvm::Function::Create(funcType, llvm::Function::LinkageTypes::ExternalLinkage, 0, funcName, module);
         
         if (isMain) {
             hasMainFunction = true;
@@ -953,11 +1107,11 @@ bool LLVMCodegen::emitObjectFile(const std::string& filename) {
 
 bool LLVMCodegen::emitObjectFile(const std::string& filename, bool keepLL, bool emitAsm, 
                                   const std::string& llOutputPath, const std::string& asmOutputPath) {
-    llvm::Triple triple = module->getTargetTriple();
-    if (triple.getTriple().empty()) {
-        triple = llvm::Triple("x86_64-pc-windows-msvc");
+    runOptimizations();
+    
+    if (module->getTargetTriple().empty()) {
+        module->setTargetTriple(llvm::Triple(llvm::sys::getDefaultTargetTriple()));
     }
-    module->setTargetTriple(triple);
     
     std::string baseFile = filename;
     if (baseFile.length() > 2 && baseFile.substr(baseFile.length() - 2) == ".o") {
@@ -967,7 +1121,7 @@ bool LLVMCodegen::emitObjectFile(const std::string& filename, bool keepLL, bool 
     std::string llFile = llOutputPath.empty() ? (baseFile + ".ll") : llOutputPath;
     std::string objFile = filename;
     std::string asmFile = asmOutputPath.empty() ? (baseFile + ".asm") : asmOutputPath;
-    
+
     std::error_code EC;
     llvm::raw_fd_ostream llOut(llFile, EC);
     if (EC) {
@@ -976,31 +1130,22 @@ bool LLVMCodegen::emitObjectFile(const std::string& filename, bool keepLL, bool 
     }
     module->print(llOut, nullptr);
     llOut.close();
-    
-    std::string cmd;
-    
-    if (emitAsm) {
-        cmd = "clang -target x86_64-pc-windows-msvc -S \"" + llFile + "\" -o \"" + asmFile + "\"";
-        int result = system(cmd.c_str());
-        if (result != 0) {
-            cmd = "clang -S \"" + llFile + "\" -o \"" + asmFile + "\"";
-            result = system(cmd.c_str());
+
+    auto targetMachine = createTargetMachine(*module, errors);
+    if (!targetMachine) {
+        if (!keepLL) {
+            std::remove(llFile.c_str());
         }
-        
-        if (result != 0) {
+        return false;
+    }
+
+    if (emitAsm) {
+        if (!emitMachineCode(*module, *targetMachine, asmFile, llvm::CodeGenFileType::AssemblyFile, errors)) {
             addError("ASM file generation failed");
             return false;
         }
-        
-        cmd = "clang -target x86_64-pc-windows-msvc -c \"" + asmFile + "\" -o \"" + objFile + "\"";
-        result = system(cmd.c_str());
-        
-        if (result != 0) {
-            cmd = "clang -c \"" + asmFile + "\" -o \"" + objFile + "\"";
-            result = system(cmd.c_str());
-        }
-        
-        if (result != 0) {
+
+        if (!emitMachineCode(*module, *targetMachine, objFile, llvm::CodeGenFileType::ObjectFile, errors)) {
             addError("Object file generation from ASM failed");
             return false;
         }
@@ -1011,16 +1156,8 @@ bool LLVMCodegen::emitObjectFile(const std::string& filename, bool keepLL, bool 
         
         return true;
     }
-    
-    cmd = "clang -target x86_64-pc-windows-msvc -c \"" + llFile + "\" -o \"" + objFile + "\"";
-    int result = system(cmd.c_str());
-    
-    if (result != 0) {
-        cmd = "clang -c \"" + llFile + "\" -o \"" + objFile + "\"";
-        result = system(cmd.c_str());
-    }
-    
-    if (result != 0) {
+
+    if (!emitMachineCode(*module, *targetMachine, objFile, llvm::CodeGenFileType::ObjectFile, errors)) {
         addError("Object file generation failed");
         return false;
     }
@@ -1033,15 +1170,72 @@ bool LLVMCodegen::emitObjectFile(const std::string& filename, bool keepLL, bool 
 }
 
 bool LLVMCodegen::linkExecutable(const std::string& objFile, const std::string& outFile) {
-    std::string cmd = "lld-link /OUT:\"" + outFile + "\" /SUBSYSTEM:CONSOLE /STACK:1048576 /ENTRY:mainCRTStartup /NODEFAULTLIB:msvcrt /DEFAULTLIB:libcmt /DEFAULTLIB:oldnames \"" + objFile + "\"";
-    
-    int result = system(cmd.c_str());
-    
-    if (result != 0) {
-        addError("Linking failed with exit code " + std::to_string(result));
+    auto vcToolsDir = getEnvPath("VCToolsInstallDir");
+    auto universalCrtDir = getEnvPath("UniversalCRTSdkDir");
+    auto windowsSdkDir = getEnvPath("WindowsSdkDir");
+
+    const char* ucrtVersionRaw = std::getenv("UCRTVersion");
+    const char* windowsSdkVersionRaw = std::getenv("WindowsSDKLibVersion");
+
+    if (!vcToolsDir || !universalCrtDir || !windowsSdkDir || !ucrtVersionRaw || !windowsSdkVersionRaw) {
+        addError("MSVC/Windows SDK environment is incomplete. Please run xfawac from a VS Developer Command Prompt.");
         return false;
     }
-    
+
+    std::vector<std::string> argStorage;
+    argStorage.reserve(24);
+    argStorage.push_back("lld-link");
+    argStorage.push_back("/nologo");
+    argStorage.push_back("/machine:x64");
+    argStorage.push_back("/subsystem:console");
+    argStorage.push_back("/entry:mainCRTStartup");
+    argStorage.push_back("/out:" + outFile);
+    argStorage.push_back(objFile);
+
+    std::filesystem::path vcLibDir = *vcToolsDir / "lib" / "x64";
+    std::filesystem::path ucrtLibDir = *universalCrtDir / "Lib" / ucrtVersionRaw / "ucrt" / "x64";
+    std::filesystem::path umLibDir = *windowsSdkDir / "Lib" / windowsSdkVersionRaw / "um" / "x64";
+
+    if (!appendLibPath(argStorage, vcLibDir) ||
+        !appendLibPath(argStorage, ucrtLibDir) ||
+        !appendLibPath(argStorage, umLibDir)) {
+        addError("Unable to locate required MSVC or Windows SDK library directories");
+        return false;
+    }
+
+    argStorage.push_back("/defaultlib:libcmt");
+    argStorage.push_back("/defaultlib:libvcruntime");
+    argStorage.push_back("/defaultlib:libucrt");
+    argStorage.push_back("/defaultlib:legacy_stdio_definitions");
+    argStorage.push_back("/defaultlib:kernel32");
+    argStorage.push_back("/defaultlib:user32");
+    argStorage.push_back("/defaultlib:advapi32");
+
+    std::vector<const char*> args;
+    args.reserve(argStorage.size());
+    for (const auto& arg : argStorage) {
+        args.push_back(arg.c_str());
+    }
+
+    std::string lldStdout;
+    std::string lldStderr;
+    llvm::raw_string_ostream stdoutStream(lldStdout);
+    llvm::raw_string_ostream stderrStream(lldStderr);
+    bool success = lld::coff::link(args, stdoutStream, stderrStream, false, false);
+    stdoutStream.flush();
+    stderrStream.flush();
+
+    if (!success) {
+        if (!lldStderr.empty()) {
+            addError("LLD linking failed: " + lldStderr);
+        } else if (!lldStdout.empty()) {
+            addError("LLD linking failed: " + lldStdout);
+        } else {
+            addError("LLD linking failed with an unknown error");
+        }
+        return false;
+    }
+
     return true;
 }
 
@@ -1055,5 +1249,78 @@ bool LLVMCodegen::verifyModule() {
     return true;
 }
 
+void LLVMCodegen::runOptimizations() {
+    switch (optLevel) {
+        case OptimizationLevel::O0:
+            runO0Optimizations();
+            break;
+        case OptimizationLevel::O1:
+            runO1Optimizations();
+            break;
+        case OptimizationLevel::O2:
+            runO2Optimizations();
+            break;
+        case OptimizationLevel::O3:
+            runO3Optimizations();
+            break;
+    }
 }
 
+void LLVMCodegen::runO0Optimizations() {
+}
+
+void LLVMCodegen::runO1Optimizations() {
+    llvm::PassBuilder passBuilder;
+    llvm::LoopAnalysisManager loopAnalysisManager;
+    llvm::FunctionAnalysisManager functionAnalysisManager;
+    llvm::CGSCCAnalysisManager cgsccAnalysisManager;
+    llvm::ModuleAnalysisManager moduleAnalysisManager;
+    
+    passBuilder.registerModuleAnalyses(moduleAnalysisManager);
+    passBuilder.registerCGSCCAnalyses(cgsccAnalysisManager);
+    passBuilder.registerFunctionAnalyses(functionAnalysisManager);
+    passBuilder.registerLoopAnalyses(loopAnalysisManager);
+    passBuilder.crossRegisterProxies(loopAnalysisManager, functionAnalysisManager, cgsccAnalysisManager, moduleAnalysisManager);
+    
+    llvm::OptimizationLevel level = llvm::OptimizationLevel::O1;
+    llvm::ModulePassManager modulePassManager = passBuilder.buildPerModuleDefaultPipeline(level);
+    modulePassManager.run(*module, moduleAnalysisManager);
+}
+
+void LLVMCodegen::runO2Optimizations() {
+    llvm::PassBuilder passBuilder;
+    llvm::LoopAnalysisManager loopAnalysisManager;
+    llvm::FunctionAnalysisManager functionAnalysisManager;
+    llvm::CGSCCAnalysisManager cgsccAnalysisManager;
+    llvm::ModuleAnalysisManager moduleAnalysisManager;
+    
+    passBuilder.registerModuleAnalyses(moduleAnalysisManager);
+    passBuilder.registerCGSCCAnalyses(cgsccAnalysisManager);
+    passBuilder.registerFunctionAnalyses(functionAnalysisManager);
+    passBuilder.registerLoopAnalyses(loopAnalysisManager);
+    passBuilder.crossRegisterProxies(loopAnalysisManager, functionAnalysisManager, cgsccAnalysisManager, moduleAnalysisManager);
+    
+    llvm::OptimizationLevel level = llvm::OptimizationLevel::O2;
+    llvm::ModulePassManager modulePassManager = passBuilder.buildPerModuleDefaultPipeline(level);
+    modulePassManager.run(*module, moduleAnalysisManager);
+}
+
+void LLVMCodegen::runO3Optimizations() {
+    llvm::PassBuilder passBuilder;
+    llvm::LoopAnalysisManager loopAnalysisManager;
+    llvm::FunctionAnalysisManager functionAnalysisManager;
+    llvm::CGSCCAnalysisManager cgsccAnalysisManager;
+    llvm::ModuleAnalysisManager moduleAnalysisManager;
+    
+    passBuilder.registerModuleAnalyses(moduleAnalysisManager);
+    passBuilder.registerCGSCCAnalyses(cgsccAnalysisManager);
+    passBuilder.registerFunctionAnalyses(functionAnalysisManager);
+    passBuilder.registerLoopAnalyses(loopAnalysisManager);
+    passBuilder.crossRegisterProxies(loopAnalysisManager, functionAnalysisManager, cgsccAnalysisManager, moduleAnalysisManager);
+    
+    llvm::OptimizationLevel level = llvm::OptimizationLevel::O3;
+    llvm::ModulePassManager modulePassManager = passBuilder.buildPerModuleDefaultPipeline(level);
+    modulePassManager.run(*module, moduleAnalysisManager);
+}
+
+}

@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <unordered_set>
 
 namespace xfawa {
 
@@ -15,6 +16,7 @@ private:
     size_t current;
     std::vector<std::string> errors;
     std::vector<std::string> warnings;
+    std::unordered_set<std::string> declaredVariables;
     
 public:
     explicit Parser(const std::vector<Token>& toks);
@@ -35,6 +37,8 @@ private:
     void advance();
     void addError(const std::string& message);
     void addWarning(const std::string& message);
+    bool isVariableDeclared(const std::string& name) const;
+    void declareVariable(const std::string& name);
     
     std::unique_ptr<Module> parseModule();
     std::unique_ptr<Function> parseFunction();
