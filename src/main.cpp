@@ -43,15 +43,25 @@ namespace xfawa {
     int g_debug_global = 0;
 }
 
-const char* COMPILER_VERSION = "1.0.0-a.8";
+const char* COMPILER_VERSION = "1.0.0-a.9";
 const char* MODS_KERNEL_VERSION = "mods-a-1.0.1";
+
+static xfawa::LogLanguage g_log_language = xfawa::LogLanguage::EN;
+
+static const char* utf8(const char8_t* text) {
+    return reinterpret_cast<const char*>(text);
+}
 
 xfawa::ErrorSystem* xfawa::ErrorReporter::instance = nullptr;
 
 std::string readFile(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
-        std::cerr << "Error: Could not open file " << path << std::endl;
+        if (g_log_language == xfawa::LogLanguage::ZH) {
+            std::cerr << utf8(u8"\u9519\u8bef\uff1a\u65e0\u6cd5\u6253\u5f00\u6587\u4ef6 ") << path << std::endl;
+        } else {
+            std::cerr << "Error: Could not open file " << path << std::endl;
+        }
         return "";
     }
     return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
@@ -86,41 +96,80 @@ bool ensureDirectoryExists(const std::string& dirPath) {
 }
 
 void printUsage(const char* programName) {
-    printf("Usage: %s [options] <input_file>\n", programName);
-    printf("Options:\n");
-    printf("  -o, --output <file>    Specify output file name\n");
-    printf("  -d, --debug            Enable debug output\n");
-    printf("  -k, --keep             Keep temporary files\n");
-    printf("  --emit-llvm            Emit LLVM IR (.ll file)\n");
-    printf("  --emit-asm             Emit assembly (.asm file)\n");
-    printf("  -O0                    Disable optimization (for debugging)\n");
-    printf("  -O1                    Enable basic optimization\n");
-    printf("  -O2                    Enable standard optimization (default)\n");
-    printf("  -O3                    Enable aggressive optimization\n");
-    printf("  -c, --config <file>    Specify config file\n");
-    printf("  -n, --no-config        Don't use config file\n");
-    printf("  -v, --version          Show compiler version\n");
-    printf("  -h, --help             Show this help message\n");
+    if (g_log_language == xfawa::LogLanguage::ZH) {
+        printf("%s%s%s", utf8(u8"\u7528\u6cd5\uff1a"), programName, utf8(u8" [\u9009\u9879] <\u8f93\u5165\u6587\u4ef6>\n"));
+        printf("%s", utf8(u8"\u9009\u9879\uff1a\n"));
+        printf("%s", utf8(u8"  -o, --output <file>    \u6307\u5b9a\u8f93\u51fa\u6587\u4ef6\u540d\n"));
+        printf("%s", utf8(u8"  -d, --debug            \u542f\u7528\u8c03\u8bd5\u8f93\u51fa\n"));
+        printf("%s", utf8(u8"  -k, --keep             \u4fdd\u7559\u4e34\u65f6\u6587\u4ef6\n"));
+        printf("%s", utf8(u8"  --emit-llvm            \u8f93\u51fa LLVM IR (.ll \u6587\u4ef6)\n"));
+        printf("%s", utf8(u8"  --emit-asm             \u8f93\u51fa\u6c47\u7f16\u6587\u4ef6 (.asm \u6587\u4ef6)\n"));
+        printf("%s", utf8(u8"  -O0                    \u5173\u95ed\u4f18\u5316\uff08\u7528\u4e8e\u8c03\u8bd5\uff09\n"));
+        printf("%s", utf8(u8"  -O1                    \u542f\u7528\u57fa\u7840\u4f18\u5316\n"));
+        printf("%s", utf8(u8"  -O2                    \u542f\u7528\u6807\u51c6\u4f18\u5316\uff08\u9ed8\u8ba4\uff09\n"));
+        printf("%s", utf8(u8"  -O3                    \u542f\u7528\u6fc0\u8fdb\u4f18\u5316\n"));
+        printf("%s", utf8(u8"  -c, --config <file>    \u6307\u5b9a\u914d\u7f6e\u6587\u4ef6\n"));
+        printf("%s", utf8(u8"  -n, --no-config        \u4e0d\u4f7f\u7528\u914d\u7f6e\u6587\u4ef6\n"));
+        printf("%s", utf8(u8"  -v, --version          \u663e\u793a\u7f16\u8bd1\u5668\u7248\u672c\n"));
+        printf("%s", utf8(u8"  -h, --help             \u663e\u793a\u5e2e\u52a9\u4fe1\u606f\n"));
+    } else {
+        printf("Usage: %s [options] <input_file>\n", programName);
+        printf("Options:\n");
+        printf("  -o, --output <file>    Specify output file name\n");
+        printf("  -d, --debug            Enable debug output\n");
+        printf("  -k, --keep             Keep temporary files\n");
+        printf("  --emit-llvm            Emit LLVM IR (.ll file)\n");
+        printf("  --emit-asm             Emit assembly (.asm file)\n");
+        printf("  -O0                    Disable optimization (for debugging)\n");
+        printf("  -O1                    Enable basic optimization\n");
+        printf("  -O2                    Enable standard optimization (default)\n");
+        printf("  -O3                    Enable aggressive optimization\n");
+        printf("  -c, --config <file>    Specify config file\n");
+        printf("  -n, --no-config        Don't use config file\n");
+        printf("  -v, --version          Show compiler version\n");
+        printf("  -h, --help             Show this help message\n");
+    }
     printf("\n");
 }
 
 void printVersion() {
-    printf("xfawaPL Compiler\n");
-    printf("Version: %s\n", COMPILER_VERSION);
-    printf("Mods Kernel: %s\n", MODS_KERNEL_VERSION);
-    printf("Backend: LLVM 21.1.8\n");
+    if (g_log_language == xfawa::LogLanguage::ZH) {
+        printf("%s\n", utf8(u8"xfawaPL \u7f16\u8bd1\u5668"));
+        printf("%s%s\n", utf8(u8"\u7248\u672c\uff1a"), COMPILER_VERSION);
+        printf("%s%s\n", utf8(u8"Mods \u5185\u6838\uff1a"), MODS_KERNEL_VERSION);
+        printf("%s\n", utf8(u8"\u540e\u7aef\uff1aLLVM 21.1.8"));
+    } else {
+        printf("xfawaPL Compiler\n");
+        printf("Version: %s\n", COMPILER_VERSION);
+        printf("Mods Kernel: %s\n", MODS_KERNEL_VERSION);
+        printf("Backend: LLVM 21.1.8\n");
+    }
 }
 
 void printConfig(const xfawa::CompilerConfig& config) {
-    std::cout << "Configuration:" << std::endl;
-    std::cout << "  Debug info: " << (config.debug_info ? "yes" : "no") << std::endl;
-    std::cout << "  Warnings: " << (config.warnings ? "yes" : "no") << std::endl;
-    std::cout << "  Show warning types: " << (config.show_warning_types ? "yes" : "no") << std::endl;
-    std::cout << "  Emit LLVM IR: " << (config.emit_ll ? "yes" : "no") << std::endl;
-    std::cout << "  Emit ASM: " << (config.emit_asm ? "yes" : "no") << std::endl;
-    std::cout << "  Optimization level: O" << static_cast<int>(config.opt_level) << std::endl;
-    std::cout << "  Output directory: " << config.output_dir << std::endl;
-    std::cout << "  Intermediate directory: " << config.intermediate_dir << std::endl;
+    if (config.log_language == xfawa::LogLanguage::ZH) {
+        std::cout << utf8(u8"\u5f53\u524d\u914d\u7f6e\uff1a") << std::endl;
+        std::cout << utf8(u8"  \u8c03\u8bd5\u4fe1\u606f\uff1a") << (config.debug_info ? utf8(u8"\u662f") : utf8(u8"\u5426")) << std::endl;
+        std::cout << utf8(u8"  \u8b66\u544a\uff1a") << (config.warnings ? utf8(u8"\u662f") : utf8(u8"\u5426")) << std::endl;
+        std::cout << utf8(u8"  \u663e\u793a\u8b66\u544a\u7c7b\u578b\uff1a") << (config.show_warning_types ? utf8(u8"\u662f") : utf8(u8"\u5426")) << std::endl;
+        std::cout << utf8(u8"  \u8f93\u51fa LLVM IR\uff1a") << (config.emit_ll ? utf8(u8"\u662f") : utf8(u8"\u5426")) << std::endl;
+        std::cout << utf8(u8"  \u8f93\u51fa\u6c47\u7f16\uff1a") << (config.emit_asm ? utf8(u8"\u662f") : utf8(u8"\u5426")) << std::endl;
+        std::cout << utf8(u8"  \u4f18\u5316\u7b49\u7ea7\uff1a") << "O" << static_cast<int>(config.opt_level) << std::endl;
+        std::cout << utf8(u8"  \u65e5\u5fd7\u8bed\u8a00\uff1a") << utf8(u8"\u4e2d\u6587") << std::endl;
+        std::cout << utf8(u8"  \u8f93\u51fa\u76ee\u5f55\uff1a") << config.output_dir << std::endl;
+        std::cout << utf8(u8"  \u4e2d\u95f4\u6587\u4ef6\u76ee\u5f55\uff1a") << config.intermediate_dir << std::endl;
+    } else {
+        std::cout << "Configuration:" << std::endl;
+        std::cout << "  Debug info: " << (config.debug_info ? "yes" : "no") << std::endl;
+        std::cout << "  Warnings: " << (config.warnings ? "yes" : "no") << std::endl;
+        std::cout << "  Show warning types: " << (config.show_warning_types ? "yes" : "no") << std::endl;
+        std::cout << "  Emit LLVM IR: " << (config.emit_ll ? "yes" : "no") << std::endl;
+        std::cout << "  Emit ASM: " << (config.emit_asm ? "yes" : "no") << std::endl;
+        std::cout << "  Optimization level: O" << static_cast<int>(config.opt_level) << std::endl;
+        std::cout << "  Log language: " << "English" << std::endl;
+        std::cout << "  Output directory: " << config.output_dir << std::endl;
+        std::cout << "  Intermediate directory: " << config.intermediate_dir << std::endl;
+    }
 }
 
 std::vector<std::string> extractModImports(const std::string& source) {
@@ -282,7 +331,11 @@ int main(int argc, char** argv) {
     }
     
     if (inputFile.empty()) {
-        xfawa::ErrorReporter::get().addSyntaxError(0, 0, "No input file specified");
+        if (g_log_language == xfawa::LogLanguage::ZH) {
+            xfawa::ErrorReporter::get().addSyntaxError(0, 0, utf8(u8"\u672a\u6307\u5b9a\u8f93\u5165\u6587\u4ef6"));
+        } else {
+            xfawa::ErrorReporter::get().addSyntaxError(0, 0, "No input file specified");
+        }
         printUsage(argv[0]);
         xfawa::ErrorReporter::cleanup();
         return 1;
@@ -308,6 +361,7 @@ int main(int argc, char** argv) {
         if (config.emit_asm) {
             g_emit_asm = true;
         }
+        g_log_language = config.log_language;
         
         if (g_opt_level_set) {
             config.opt_level = g_opt_level;
@@ -524,7 +578,11 @@ int main(int argc, char** argv) {
         xfawa::ErrorReporter::get().printDiagnostics();
     }
     
-    std::cout << "Compilation successful: " << outputFile << std::endl;
+    if (g_log_language == xfawa::LogLanguage::ZH) {
+        std::cout << utf8(u8"\u7f16\u8bd1\u6210\u529f\uff1a") << outputFile << std::endl;
+    } else {
+        std::cout << "Compilation successful: " << outputFile << std::endl;
+    }
     
     xfawa::ErrorReporter::cleanup();
     return 0;

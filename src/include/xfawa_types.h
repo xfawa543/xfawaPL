@@ -39,6 +39,7 @@ enum class NodeType {
     FUNCTION_DECLARATION,
     FOR_IN_STATEMENT,
     TYPED_ASSIGNMENT_STATEMENT,
+    WINDOW_STATEMENT,
     
     DECLARATION,
     VARIABLE_DECLARATION,
@@ -98,7 +99,7 @@ public:
         return nodeType >= NodeType::EXPRESSION && nodeType <= NodeType::ARRAY_RANGE_EXPRESSION; 
     }
     bool isStatement() const { 
-        return nodeType >= NodeType::STATEMENT && nodeType <= NodeType::IMPORT_STATEMENT; 
+        return nodeType >= NodeType::STATEMENT && nodeType <= NodeType::WINDOW_STATEMENT; 
     }
 };
 
@@ -139,6 +140,7 @@ enum class TokenType {
     KEYWORD_FLOAT,
     KEYWORD_BOOL,
     KEYWORD_FOR,
+    KEYWORD_WINDOW,
     
     PUNCTUATOR_LPAREN,
     PUNCTUATOR_RPAREN,

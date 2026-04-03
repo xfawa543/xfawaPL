@@ -128,6 +128,79 @@ std::unique_ptr<Module> Parser::parseModule() {
     return std::make_unique<Module>(name, std::move(functions), loc);
 }
 
+std::unique_ptr<WindowStatement> Parser::parseWindowStatement() {
+    SourceLocation loc = peek().location;
+
+    if (!consume(TokenType::KEYWORD_WINDOW)) {
+        return nullptr;
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_LBRACE)) {
+        addError("Expected '{' after 'window'");
+        return nullptr;
+    }
+
+    auto windowDecl = std::make_unique<WindowStatement>(loc);
+
+    while (!isAtEnd() && !peek().is(TokenType::PUNCTUATOR_RBRACE)) {
+        if (!consume(TokenType::IDENTIFIER)) {
+            addError("Expected window property name");
+            return nullptr;
+        }
+
+        std::string propertyName = peek(-1).text;
+        if (!consume(TokenType::PUNCTUATOR_COLON)) {
+            addError("Expected ':' after window property '" + propertyName + "'");
+            return nullptr;
+        }
+
+        if (propertyName == "width") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for window width");
+                return nullptr;
+            }
+            windowDecl->width = std::stoi(peek(-1).text);
+        } else if (propertyName == "height" || propertyName == "high") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for window height");
+                return nullptr;
+            }
+            windowDecl->height = std::stoi(peek(-1).text);
+        } else if (propertyName == "title") {
+            if (consume(TokenType::STRING_LITERAL)) {
+                windowDecl->title = peek(-1).text;
+            } else if (consume(TokenType::IDENTIFIER)) {
+                windowDecl->title = peek(-1).text;
+            } else {
+                addError("Expected string or identifier for window title");
+                return nullptr;
+            }
+        } else if (propertyName == "color") {
+            if (consume(TokenType::IDENTIFIER) || consume(TokenType::STRING_LITERAL)) {
+                windowDecl->color = peek(-1).text;
+            } else {
+                addError("Expected color name for window color");
+                return nullptr;
+            }
+        } else {
+            addError("Unknown window property: " + propertyName);
+            return nullptr;
+        }
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_RBRACE)) {
+        addError("Expected '}' to close window block");
+        return nullptr;
+    }
+
+    if (windowDecl->width <= 0 || windowDecl->height <= 0) {
+        addError("Window width and height must be greater than zero");
+        return nullptr;
+    }
+
+    return windowDecl;
+}
+
 std::unique_ptr<Function> Parser::parseFunction() {
     SourceLocation loc = peek().location;
     
@@ -211,6 +284,8 @@ std::unique_ptr<Statement> Parser::parseStatement() {
         return parseReturnStatement();
     } else if (peek().is(TokenType::KEYWORD_FOR)) {
         return parseForInStatement();
+    } else if (peek().is(TokenType::KEYWORD_WINDOW)) {
+        return parseWindowStatement();
     } else if (peek().is(TokenType::KEYWORD_FN)) {
         SourceLocation loc = peek().location;
         auto func = parseFunction();

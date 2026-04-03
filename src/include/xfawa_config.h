@@ -12,6 +12,11 @@ enum class OptimizationLevel {
     O3 = 3
 };
 
+enum class LogLanguage {
+    EN,
+    ZH
+};
+
 struct CompilerConfig {
     bool debug_info = false;
     bool warnings = true;
@@ -19,6 +24,7 @@ struct CompilerConfig {
     bool emit_asm = false;
     bool show_warning_types = true;
     OptimizationLevel opt_level = OptimizationLevel::O2;
+    LogLanguage log_language = LogLanguage::EN;
     std::string output_dir = "bin";
     std::string intermediate_dir = "build";
 };

@@ -423,6 +423,26 @@ public:
     }
 };
 
+class WindowStatement : public Statement {
+public:
+    int width = 800;
+    int height = 600;
+    std::string title = "xfawa";
+    std::string color = "white";
+
+    WindowStatement(const SourceLocation& loc = SourceLocation())
+        : Statement(NodeType::WINDOW_STATEMENT, loc) {}
+
+    std::string toString() const override {
+        return "window {\n"
+               "  width: " + std::to_string(width) + "\n"
+               "  height: " + std::to_string(height) + "\n"
+               "  title: \"" + title + "\"\n"
+               "  color: " + color + "\n"
+               "}";
+    }
+};
+
 class Program {
 public:
     std::vector<std::unique_ptr<Module>> modules;

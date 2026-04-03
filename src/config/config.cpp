@@ -3,6 +3,8 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
+#include <algorithm>
+#include <cctype>
 #include <windows.h>
 #include <regex>
 
@@ -11,6 +13,29 @@ namespace xfawa {
 static const std::string CONFIG_FILENAME = "xfawac.xfconf";
 static const std::string DEFAULT_OUTPUT_DIR = "bin";
 static const std::string DEFAULT_INTERMEDIATE_DIR = "build";
+
+static std::string toLowerAscii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+
+static LogLanguage parseLogLanguage(const std::string& value) {
+    std::string lowered = toLowerAscii(value);
+    if (lowered == "zh" || lowered == "zh-cn" || lowered == "cn" || lowered == "chinese") {
+        return LogLanguage::ZH;
+    }
+    return LogLanguage::EN;
+}
+
+static const char* logLanguageToString(LogLanguage language) {
+    switch (language) {
+        case LogLanguage::ZH: return "zh";
+        case LogLanguage::EN:
+        default: return "en";
+    }
+}
 
 std::string ConfigLoader::trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -29,20 +54,22 @@ void ConfigLoader::parseLine(const std::string& line, CompilerConfig& config) {
     
     std::string key = trim(trimmed.substr(0, eqPos));
     std::string value = trim(trimmed.substr(eqPos + 1));
+    std::string loweredValue = toLowerAscii(value);
     
-    if (key == "debug_info") config.debug_info = (value == "true" || value == "1");
-    else if (key == "warnings") config.warnings = (value == "true" || value == "1");
-    else if (key == "emit_ll") config.emit_ll = (value == "true" || value == "1");
-    else if (key == "emit_asm") config.emit_asm = (value == "true" || value == "1");
-    else if (key == "show_warning_types") config.show_warning_types = (value == "true" || value == "1");
+    if (key == "debug_info") config.debug_info = (loweredValue == "true" || value == "1");
+    else if (key == "warnings") config.warnings = (loweredValue == "true" || value == "1");
+    else if (key == "emit_ll") config.emit_ll = (loweredValue == "true" || value == "1");
+    else if (key == "emit_asm") config.emit_asm = (loweredValue == "true" || value == "1");
+    else if (key == "show_warning_types") config.show_warning_types = (loweredValue == "true" || value == "1");
     else if (key == "optimization_level" || key == "opt_level") {
-        if (value == "0" || value == "O0") config.opt_level = OptimizationLevel::O0;
-        else if (value == "1" || value == "O1") config.opt_level = OptimizationLevel::O1;
-        else if (value == "2" || value == "O2") config.opt_level = OptimizationLevel::O2;
-        else if (value == "3" || value == "O3") config.opt_level = OptimizationLevel::O3;
+        if (value == "0" || loweredValue == "o0") config.opt_level = OptimizationLevel::O0;
+        else if (value == "1" || loweredValue == "o1") config.opt_level = OptimizationLevel::O1;
+        else if (value == "2" || loweredValue == "o2") config.opt_level = OptimizationLevel::O2;
+        else if (value == "3" || loweredValue == "o3") config.opt_level = OptimizationLevel::O3;
     }
     else if (key == "output_dir") config.output_dir = value;
     else if (key == "intermediate_dir") config.intermediate_dir = value;
+    else if (key == "log_language" || key == "language" || key == "log_lang") config.log_language = parseLogLanguage(value);
 }
 
 std::string ConfigLoader::searchFromDirectory(const std::string& dir) {
@@ -198,6 +225,7 @@ void ConfigLoader::save(const std::string& filepath, const CompilerConfig& confi
     writeBool("emit_asm", config.emit_asm);
     writeBool("show_warning_types", config.show_warning_types);
     writeOptLevel("optimization_level", config.opt_level);
+    writeString("log_language", logLanguageToString(config.log_language));
     writeString("output_dir", config.output_dir);
     writeString("intermediate_dir", config.intermediate_dir);
     

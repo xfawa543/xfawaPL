@@ -1,4 +1,5 @@
 #include "xfawa_llvm_codegen.h"
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
@@ -39,7 +40,22 @@ static llvm::ConstantInt* createConstInt(llvm::LLVMContext& ctx, llvm::IntegerTy
 
 namespace {
 
-std::unique_ptr<llvm::TargetMachine> createTargetMachine(llvm::Module& module, std::vector<std::string>& errors) {
+llvm::CodeGenOptLevel toCodeGenOptLevel(xfawa::OptimizationLevel level) {
+    switch (level) {
+        case xfawa::OptimizationLevel::O0:
+            return llvm::CodeGenOptLevel::None;
+        case xfawa::OptimizationLevel::O1:
+            return llvm::CodeGenOptLevel::Less;
+        case xfawa::OptimizationLevel::O2:
+            return llvm::CodeGenOptLevel::Default;
+        case xfawa::OptimizationLevel::O3:
+            return llvm::CodeGenOptLevel::Aggressive;
+    }
+
+    return llvm::CodeGenOptLevel::Default;
+}
+
+std::unique_ptr<llvm::TargetMachine> createTargetMachine(llvm::Module& module, xfawa::OptimizationLevel optLevel, std::vector<std::string>& errors) {
     llvm::Triple triple = module.getTargetTriple();
     if (triple.str().empty()) {
         triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
@@ -56,7 +72,7 @@ std::unique_ptr<llvm::TargetMachine> createTargetMachine(llvm::Module& module, s
     llvm::TargetOptions options;
     std::optional<llvm::Reloc::Model> relocModel = llvm::Reloc::PIC_;
     auto targetMachine = std::unique_ptr<llvm::TargetMachine>(
-        target->createTargetMachine(triple, "generic", "", options, relocModel));
+        target->createTargetMachine(triple, "generic", "", options, relocModel, std::nullopt, toCodeGenOptLevel(optLevel)));
 
     if (!targetMachine) {
         errors.push_back("Unable to create LLVM target machine for triple '" + triple.str() + "'");
@@ -128,34 +144,64 @@ bool appendLibPath(std::vector<std::string>& args, const std::filesystem::path& 
 } // namespace
 
 LLVMCodegen::LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod) 
-    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), loopEndBB(nullptr), optLevel(OptimizationLevel::O2) {
+    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), hasWindowStatements(false), loopEndBB(nullptr), optLevel(OptimizationLevel::O2), generatedWindowCount(0) {
     initBuiltins();
 }
 
 LLVMCodegen::LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod, OptimizationLevel opt)
-    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), loopEndBB(nullptr), optLevel(opt) {
+    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), hasWindowStatements(false), loopEndBB(nullptr), optLevel(opt), generatedWindowCount(0) {
     initBuiltins();
 }
 
 void LLVMCodegen::initBuiltins() {
-    llvm::FunctionType* printfType = llvm::FunctionType::get(builder.getInt32Ty(), {builder.getInt8Ty()->getPointerTo()}, true);
-    llvm::Function* printfFunc = llvm::Function::Create(printfType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "printf", module);
+    auto declareFunction = [this](const std::string& name, llvm::FunctionType* type) -> llvm::Function* {
+        if (llvm::Function* existing = module->getFunction(name)) {
+            return existing;
+        }
+        return llvm::Function::Create(type, llvm::Function::LinkageTypes::ExternalLinkage, 0, name, module);
+    };
+
+    llvm::Type* ptrTy = builder.getInt8Ty()->getPointerTo();
+
+    llvm::FunctionType* printfType = llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy}, true);
+    llvm::Function* printfFunc = declareFunction("printf", printfType);
     printfFunc->setCallingConv(llvm::CallingConv::C);
-    
-    llvm::FunctionType* mallocType = llvm::FunctionType::get(builder.getInt8Ty()->getPointerTo(), {builder.getInt64Ty()}, false);
-    llvm::Function::Create(mallocType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "malloc", module);
-    
+
+    llvm::FunctionType* mallocType = llvm::FunctionType::get(ptrTy, {builder.getInt64Ty()}, false);
+    declareFunction("malloc", mallocType);
+
     llvm::FunctionType* randType = llvm::FunctionType::get(builder.getInt32Ty(), false);
-    llvm::Function::Create(randType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "rand", module);
-    
+    declareFunction("rand", randType);
+
     llvm::FunctionType* srandType = llvm::FunctionType::get(builder.getVoidTy(), {builder.getInt32Ty()}, false);
-    llvm::Function::Create(srandType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "srand", module);
-    
+    declareFunction("srand", srandType);
+
     llvm::FunctionType* timeType = llvm::FunctionType::get(builder.getInt64Ty(), {builder.getInt64Ty()->getPointerTo()}, false);
-    llvm::Function::Create(timeType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "time", module);
-    
+    declareFunction("time", timeType);
+
     llvm::FunctionType* clockType = llvm::FunctionType::get(builder.getInt64Ty(), false);
-    llvm::Function::Create(clockType, llvm::Function::LinkageTypes::ExternalLinkage, 0, "clock", module);
+    declareFunction("clock", clockType);
+
+    declareFunction("GetModuleHandleA", llvm::FunctionType::get(ptrTy, {ptrTy}, false));
+    declareFunction("LoadCursorA", llvm::FunctionType::get(ptrTy, {ptrTy, ptrTy}, false));
+    declareFunction("RegisterClassA", llvm::FunctionType::get(builder.getInt16Ty(), {ptrTy}, false));
+    declareFunction("CreateWindowExA", llvm::FunctionType::get(
+        ptrTy,
+        {builder.getInt32Ty(), ptrTy, ptrTy, builder.getInt32Ty(), builder.getInt32Ty(),
+         builder.getInt32Ty(), builder.getInt32Ty(), builder.getInt32Ty(), ptrTy, ptrTy, ptrTy, ptrTy},
+        false));
+    declareFunction("ShowWindow", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy, builder.getInt32Ty()}, false));
+    declareFunction("UpdateWindow", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy}, false));
+    declareFunction("GetMessageA", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy, ptrTy, builder.getInt32Ty(), builder.getInt32Ty()}, false));
+    declareFunction("TranslateMessage", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy}, false));
+    declareFunction("DispatchMessageA", llvm::FunctionType::get(builder.getInt64Ty(), {ptrTy}, false));
+    declareFunction("DefWindowProcA", llvm::FunctionType::get(builder.getInt64Ty(), {ptrTy, builder.getInt32Ty(), builder.getInt64Ty(), builder.getInt64Ty()}, false));
+    declareFunction("PostQuitMessage", llvm::FunctionType::get(builder.getVoidTy(), {builder.getInt32Ty()}, false));
+    declareFunction("BeginPaint", llvm::FunctionType::get(ptrTy, {ptrTy, ptrTy}, false));
+    declareFunction("EndPaint", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy, ptrTy}, false));
+    declareFunction("CreateSolidBrush", llvm::FunctionType::get(ptrTy, {builder.getInt32Ty()}, false));
+    declareFunction("FillRect", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy, ptrTy, ptrTy}, false));
+    declareFunction("DeleteObject", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy}, false));
 }
 
 llvm::Type* LLVMCodegen::getLLVMType(VarType type) {
@@ -970,11 +1016,16 @@ bool LLVMCodegen::codegenProgram(Program* program) {
             }
         }
     }
-    
+
     for (auto& mod : program->modules) {
         if (!codegen(mod.get())) {
             return false;
         }
+    }
+
+    if (!hasMainFunction) {
+        addError("No entry point found. Define main().");
+        return false;
     }
     
     return true;
@@ -1049,6 +1100,33 @@ bool LLVMCodegen::codegen(Function* func) {
         if (func->body) {
             codegen(func->body.get());
         }
+
+        if (isMain && hasWindowStatements && builder.GetInsertBlock() && !builder.GetInsertBlock()->getTerminator()) {
+            llvm::Type* ptrTy = builder.getInt8Ty()->getPointerTo();
+            llvm::Function* getMessageFunc = module->getFunction("GetMessageA");
+            llvm::Function* translateMessageFunc = module->getFunction("TranslateMessage");
+            llvm::Function* dispatchMessageFunc = module->getFunction("DispatchMessageA");
+
+            llvm::BasicBlock* msgLoopCondBB = llvm::BasicBlock::Create(context, "msg_loop_cond", llvmFunc);
+            llvm::BasicBlock* msgLoopBodyBB = llvm::BasicBlock::Create(context, "msg_loop_body", llvmFunc);
+            llvm::BasicBlock* msgLoopExitBB = llvm::BasicBlock::Create(context, "msg_loop_exit", llvmFunc);
+
+            llvm::AllocaInst* msgBuffer = builder.CreateAlloca(llvm::ArrayType::get(builder.getInt8Ty(), 48), nullptr, "msg");
+            llvm::Value* nullPtr = llvm::Constant::getNullValue(ptrTy);
+            builder.CreateBr(msgLoopCondBB);
+
+            builder.SetInsertPoint(msgLoopCondBB);
+            llvm::Value* getMessageResult = builder.CreateCall(getMessageFunc, {msgBuffer, nullPtr, builder.getInt32(0), builder.getInt32(0)}, "msg_result");
+            llvm::Value* keepRunning = builder.CreateICmpSGT(getMessageResult, builder.getInt32(0), "keep_running");
+            builder.CreateCondBr(keepRunning, msgLoopBodyBB, msgLoopExitBB);
+
+            builder.SetInsertPoint(msgLoopBodyBB);
+            builder.CreateCall(translateMessageFunc, {msgBuffer});
+            builder.CreateCall(dispatchMessageFunc, {msgBuffer});
+            builder.CreateBr(msgLoopCondBB);
+
+            builder.SetInsertPoint(msgLoopExitBB);
+        }
         
         if (builder.GetInsertBlock() && !builder.GetInsertBlock()->getTerminator()) {
             if (func->name == "main" && func->ns.empty()) {
@@ -1072,6 +1150,7 @@ bool LLVMCodegen::codegen(Statement* stmt) {
     if (dynamic_cast<IfStatement*>(stmt)) return codegen(dynamic_cast<IfStatement*>(stmt)) != nullptr;
     if (dynamic_cast<WhileStatement*>(stmt)) return codegen(dynamic_cast<WhileStatement*>(stmt)) != nullptr;
     if (dynamic_cast<ForInStatement*>(stmt)) return codegen(dynamic_cast<ForInStatement*>(stmt)) != nullptr;
+    if (dynamic_cast<WindowStatement*>(stmt)) return codegen(dynamic_cast<WindowStatement*>(stmt)) != nullptr;
     if (dynamic_cast<ImportStatement*>(stmt)) return codegen(dynamic_cast<ImportStatement*>(stmt));
     if (auto* funcDecl = dynamic_cast<FunctionDeclarationStatement*>(stmt)) {
         if (funcDecl->func) {
@@ -1084,6 +1163,206 @@ bool LLVMCodegen::codegen(Statement* stmt) {
 
 bool LLVMCodegen::codegen(ImportStatement* stmt) {
     return true;
+}
+
+uint32_t LLVMCodegen::resolveWindowColor(const std::string& colorName) const {
+    std::string normalized;
+    normalized.reserve(colorName.size());
+    for (char ch : colorName) {
+        normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+    }
+
+    if (normalized == "red") return 0x000000FF;
+    if (normalized == "green") return 0x0000FF00;
+    if (normalized == "blue") return 0x00FF0000;
+    if (normalized == "black") return 0x00000000;
+    if (normalized == "white") return 0x00FFFFFF;
+    if (normalized == "yellow") return 0x0000FFFF;
+    if (normalized == "cyan") return 0x00FFFF00;
+    if (normalized == "magenta") return 0x00FF00FF;
+    if (normalized == "gray" || normalized == "grey") return 0x00808080;
+    return 0x00FFFFFF;
+}
+
+llvm::GlobalVariable* LLVMCodegen::getWindowCountGlobal() {
+    if (llvm::GlobalVariable* existing = module->getNamedGlobal("__xfawa_active_window_count")) {
+        return existing;
+    }
+
+    return new llvm::GlobalVariable(
+        *module,
+        builder.getInt32Ty(),
+        false,
+        llvm::GlobalValue::InternalLinkage,
+        builder.getInt32(0),
+        "__xfawa_active_window_count");
+}
+
+llvm::Function* LLVMCodegen::createWindowProc(WindowStatement* windowDecl, int windowId) {
+    llvm::Type* ptrTy = builder.getInt8Ty()->getPointerTo();
+    llvm::Type* i32Ty = builder.getInt32Ty();
+    llvm::Type* i64Ty = builder.getInt64Ty();
+
+    llvm::FunctionType* wndProcTy = llvm::FunctionType::get(i64Ty, {ptrTy, i32Ty, i64Ty, i64Ty}, false);
+    llvm::Function* wndProc = llvm::Function::Create(
+        wndProcTy,
+        llvm::Function::LinkageTypes::InternalLinkage,
+        "__xfawa_window_proc_" + std::to_string(windowId),
+        module);
+
+    llvm::BasicBlock* entryBB = llvm::BasicBlock::Create(context, "entry", wndProc);
+    llvm::BasicBlock* paintBB = llvm::BasicBlock::Create(context, "paint", wndProc);
+    llvm::BasicBlock* destroyBB = llvm::BasicBlock::Create(context, "destroy", wndProc);
+    llvm::BasicBlock* defaultBB = llvm::BasicBlock::Create(context, "default", wndProc);
+
+    builder.SetInsertPoint(entryBB);
+
+    auto argIt = wndProc->arg_begin();
+    llvm::Value* hwnd = argIt++;
+    hwnd->setName("hwnd");
+    llvm::Value* msg = argIt++;
+    msg->setName("msg");
+    llvm::Value* wparam = argIt++;
+    wparam->setName("wparam");
+    llvm::Value* lparam = argIt++;
+    lparam->setName("lparam");
+
+    llvm::Value* isPaint = builder.CreateICmpEQ(msg, builder.getInt32(15), "is_paint");
+    llvm::Value* isDestroy = builder.CreateICmpEQ(msg, builder.getInt32(2), "is_destroy");
+    llvm::Value* routePaintOrOther = builder.CreateSelect(isPaint, builder.getInt1(true), isDestroy, "route_window_msg");
+    builder.CreateCondBr(routePaintOrOther, paintBB, defaultBB);
+
+    builder.SetInsertPoint(paintBB);
+    llvm::BasicBlock* paintContinueBB = llvm::BasicBlock::Create(context, "paint_body", wndProc);
+    builder.CreateCondBr(isDestroy, destroyBB, paintContinueBB);
+
+    builder.SetInsertPoint(paintContinueBB);
+    llvm::StructType* paintStructTy = llvm::StructType::create(
+        context,
+        {ptrTy, i32Ty, llvm::ArrayType::get(i32Ty, 4), i32Ty, i32Ty, llvm::ArrayType::get(builder.getInt8Ty(), 32)},
+        "xfawa.paintstruct");
+    llvm::AllocaInst* paintStruct = builder.CreateAlloca(paintStructTy, nullptr, "paintstruct");
+    builder.CreateStore(llvm::Constant::getNullValue(paintStructTy), paintStruct);
+
+    llvm::Function* beginPaintFunc = module->getFunction("BeginPaint");
+    llvm::Function* endPaintFunc = module->getFunction("EndPaint");
+    llvm::Function* createSolidBrushFunc = module->getFunction("CreateSolidBrush");
+    llvm::Function* fillRectFunc = module->getFunction("FillRect");
+    llvm::Function* deleteObjectFunc = module->getFunction("DeleteObject");
+
+    llvm::Value* hdc = builder.CreateCall(beginPaintFunc, {hwnd, paintStruct}, "hdc");
+    llvm::Value* rectPtr = builder.CreateStructGEP(paintStructTy, paintStruct, 2, "rectptr");
+    llvm::Value* brush = builder.CreateCall(createSolidBrushFunc, {builder.getInt32(resolveWindowColor(windowDecl->color))}, "brush");
+    builder.CreateCall(fillRectFunc, {hdc, rectPtr, brush});
+    builder.CreateCall(deleteObjectFunc, {brush});
+    builder.CreateCall(endPaintFunc, {hwnd, paintStruct});
+    builder.CreateRet(builder.getInt64(0));
+
+    builder.SetInsertPoint(destroyBB);
+    llvm::GlobalVariable* windowCount = getWindowCountGlobal();
+    llvm::Value* currentCount = builder.CreateLoad(builder.getInt32Ty(), windowCount, "window_count");
+    llvm::Value* nextCount = builder.CreateSub(currentCount, builder.getInt32(1), "window_count_next");
+    builder.CreateStore(nextCount, windowCount);
+
+    llvm::BasicBlock* quitBB = llvm::BasicBlock::Create(context, "quit", wndProc);
+    llvm::BasicBlock* noQuitBB = llvm::BasicBlock::Create(context, "no_quit", wndProc);
+    llvm::Value* shouldQuit = builder.CreateICmpSLE(nextCount, builder.getInt32(0), "should_quit");
+    builder.CreateCondBr(shouldQuit, quitBB, noQuitBB);
+
+    builder.SetInsertPoint(quitBB);
+    llvm::Function* postQuitMessageFunc = module->getFunction("PostQuitMessage");
+    builder.CreateCall(postQuitMessageFunc, {builder.getInt32(0)});
+    builder.CreateRet(builder.getInt64(0));
+
+    builder.SetInsertPoint(noQuitBB);
+    builder.CreateRet(builder.getInt64(0));
+
+    builder.SetInsertPoint(defaultBB);
+    llvm::Function* defWindowProcFunc = module->getFunction("DefWindowProcA");
+    builder.CreateRet(builder.CreateCall(defWindowProcFunc, {hwnd, msg, wparam, lparam}, "defproc"));
+
+    return wndProc;
+}
+
+llvm::Function* LLVMCodegen::createWindowRuntime(WindowStatement* windowDecl, int windowId, llvm::Function* wndProc) {
+    llvm::Type* ptrTy = builder.getInt8Ty()->getPointerTo();
+    llvm::Type* i32Ty = builder.getInt32Ty();
+
+    llvm::FunctionType* runtimeTy = llvm::FunctionType::get(builder.getVoidTy(), false);
+    llvm::Function* mainFunc = llvm::Function::Create(
+        runtimeTy,
+        llvm::Function::LinkageTypes::InternalLinkage,
+        "__xfawa_window_runtime_" + std::to_string(windowId),
+        module);
+
+    llvm::BasicBlock* entryBB = llvm::BasicBlock::Create(context, "entry", mainFunc);
+
+    builder.SetInsertPoint(entryBB);
+
+    llvm::StructType* wndClassTy = llvm::StructType::create(
+        context,
+        {i32Ty, ptrTy, i32Ty, i32Ty, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy, ptrTy},
+        "xfawa.wndclassa");
+
+    llvm::AllocaInst* wndClass = builder.CreateAlloca(wndClassTy, nullptr, "wndclass");
+    builder.CreateStore(llvm::Constant::getNullValue(wndClassTy), wndClass);
+
+    llvm::Value* className = builder.CreateGlobalStringPtr("XfawaWindowClass" + std::to_string(windowId), "window_class_name_" + std::to_string(windowId));
+    llvm::Value* title = builder.CreateGlobalStringPtr(windowDecl->title, "window_title_" + std::to_string(windowId));
+
+    llvm::Function* getModuleHandleFunc = module->getFunction("GetModuleHandleA");
+    llvm::Function* loadCursorFunc = module->getFunction("LoadCursorA");
+    llvm::Function* registerClassFunc = module->getFunction("RegisterClassA");
+    llvm::Function* createWindowFunc = module->getFunction("CreateWindowExA");
+    llvm::Function* showWindowFunc = module->getFunction("ShowWindow");
+    llvm::Function* updateWindowFunc = module->getFunction("UpdateWindow");
+    llvm::Value* nullPtr = llvm::Constant::getNullValue(ptrTy);
+    llvm::Value* hInstance = builder.CreateCall(getModuleHandleFunc, {nullPtr}, "hinstance");
+    llvm::Value* arrowCursorId = llvm::ConstantExpr::getIntToPtr(builder.getInt64(32512), llvm::cast<llvm::PointerType>(ptrTy));
+    llvm::Value* cursor = builder.CreateCall(loadCursorFunc, {nullPtr, arrowCursorId}, "cursor");
+
+    builder.CreateStore(builder.getInt32(3), builder.CreateStructGEP(wndClassTy, wndClass, 0));
+    builder.CreateStore(builder.CreateBitCast(wndProc, ptrTy), builder.CreateStructGEP(wndClassTy, wndClass, 1));
+    builder.CreateStore(builder.getInt32(0), builder.CreateStructGEP(wndClassTy, wndClass, 2));
+    builder.CreateStore(builder.getInt32(0), builder.CreateStructGEP(wndClassTy, wndClass, 3));
+    builder.CreateStore(hInstance, builder.CreateStructGEP(wndClassTy, wndClass, 4));
+    builder.CreateStore(nullPtr, builder.CreateStructGEP(wndClassTy, wndClass, 5));
+    builder.CreateStore(cursor, builder.CreateStructGEP(wndClassTy, wndClass, 6));
+    builder.CreateStore(nullPtr, builder.CreateStructGEP(wndClassTy, wndClass, 7));
+    builder.CreateStore(nullPtr, builder.CreateStructGEP(wndClassTy, wndClass, 8));
+    builder.CreateStore(className, builder.CreateStructGEP(wndClassTy, wndClass, 9));
+
+    builder.CreateCall(registerClassFunc, {wndClass});
+
+    llvm::Value* hwnd = builder.CreateCall(
+        createWindowFunc,
+        {builder.getInt32(0), className, title, builder.getInt32(0x00CF0000),
+         builder.getInt32(-2147483648), builder.getInt32(-2147483648),
+         builder.getInt32(windowDecl->width), builder.getInt32(windowDecl->height),
+         nullPtr, nullPtr, hInstance, nullPtr},
+        "hwnd");
+
+    builder.CreateCall(showWindowFunc, {hwnd, builder.getInt32(10)});
+    builder.CreateCall(updateWindowFunc, {hwnd});
+    llvm::GlobalVariable* windowCount = getWindowCountGlobal();
+    llvm::Value* currentCount = builder.CreateLoad(i32Ty, windowCount, "window_count");
+    llvm::Value* nextCount = builder.CreateAdd(currentCount, builder.getInt32(1), "window_count_next");
+    builder.CreateStore(nextCount, windowCount);
+    builder.CreateRetVoid();
+
+    return mainFunc;
+}
+
+llvm::Value* LLVMCodegen::codegen(WindowStatement* windowStmt) {
+    if (!windowStmt) return nullptr;
+
+    hasWindowStatements = true;
+    int windowId = generatedWindowCount++;
+    llvm::IRBuilderBase::InsertPoint savedInsertPoint = builder.saveIP();
+    llvm::Function* wndProc = createWindowProc(windowStmt, windowId);
+    llvm::Function* runtimeFunc = createWindowRuntime(windowStmt, windowId, wndProc);
+    builder.restoreIP(savedInsertPoint);
+    return builder.CreateCall(runtimeFunc, {});
 }
 
 llvm::Value* LLVMCodegen::codegen(Expression* expr) {
@@ -1131,7 +1410,7 @@ bool LLVMCodegen::emitObjectFile(const std::string& filename, bool keepLL, bool 
     module->print(llOut, nullptr);
     llOut.close();
 
-    auto targetMachine = createTargetMachine(*module, errors);
+    auto targetMachine = createTargetMachine(*module, optLevel, errors);
     if (!targetMachine) {
         if (!keepLL) {
             std::remove(llFile.c_str());
@@ -1177,30 +1456,29 @@ bool LLVMCodegen::linkExecutable(const std::string& objFile, const std::string& 
     const char* ucrtVersionRaw = std::getenv("UCRTVersion");
     const char* windowsSdkVersionRaw = std::getenv("WindowsSDKLibVersion");
 
-    if (!vcToolsDir || !universalCrtDir || !windowsSdkDir || !ucrtVersionRaw || !windowsSdkVersionRaw) {
-        addError("MSVC/Windows SDK environment is incomplete. Please run xfawac from a VS Developer Command Prompt.");
-        return false;
-    }
-
     std::vector<std::string> argStorage;
     argStorage.reserve(24);
     argStorage.push_back("lld-link");
     argStorage.push_back("/nologo");
     argStorage.push_back("/machine:x64");
-    argStorage.push_back("/subsystem:console");
+    argStorage.push_back(hasWindowStatements ? "/subsystem:windows" : "/subsystem:console");
     argStorage.push_back("/entry:mainCRTStartup");
     argStorage.push_back("/out:" + outFile);
     argStorage.push_back(objFile);
 
-    std::filesystem::path vcLibDir = *vcToolsDir / "lib" / "x64";
-    std::filesystem::path ucrtLibDir = *universalCrtDir / "Lib" / ucrtVersionRaw / "ucrt" / "x64";
-    std::filesystem::path umLibDir = *windowsSdkDir / "Lib" / windowsSdkVersionRaw / "um" / "x64";
+    // If the user is already in a VS developer environment, use those paths.
+    // Otherwise let embedded LLD auto-detect the MSVC and Windows SDK layout.
+    if (vcToolsDir && universalCrtDir && windowsSdkDir && ucrtVersionRaw && windowsSdkVersionRaw) {
+        std::filesystem::path vcLibDir = *vcToolsDir / "lib" / "x64";
+        std::filesystem::path ucrtLibDir = *universalCrtDir / "Lib" / ucrtVersionRaw / "ucrt" / "x64";
+        std::filesystem::path umLibDir = *windowsSdkDir / "Lib" / windowsSdkVersionRaw / "um" / "x64";
 
-    if (!appendLibPath(argStorage, vcLibDir) ||
-        !appendLibPath(argStorage, ucrtLibDir) ||
-        !appendLibPath(argStorage, umLibDir)) {
-        addError("Unable to locate required MSVC or Windows SDK library directories");
-        return false;
+        if (!appendLibPath(argStorage, vcLibDir) ||
+            !appendLibPath(argStorage, ucrtLibDir) ||
+            !appendLibPath(argStorage, umLibDir)) {
+            addError("Unable to locate required MSVC or Windows SDK library directories from the current environment");
+            return false;
+        }
     }
 
     argStorage.push_back("/defaultlib:libcmt");
@@ -1209,6 +1487,7 @@ bool LLVMCodegen::linkExecutable(const std::string& objFile, const std::string& 
     argStorage.push_back("/defaultlib:legacy_stdio_definitions");
     argStorage.push_back("/defaultlib:kernel32");
     argStorage.push_back("/defaultlib:user32");
+    argStorage.push_back("/defaultlib:gdi32");
     argStorage.push_back("/defaultlib:advapi32");
 
     std::vector<const char*> args;

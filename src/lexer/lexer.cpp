@@ -23,7 +23,8 @@ const std::vector<std::pair<std::string, TokenType>> Lexer::keywords = {
     {"int", TokenType::KEYWORD_INT},
     {"float", TokenType::KEYWORD_FLOAT},
     {"bool", TokenType::KEYWORD_BOOL},
-    {"for", TokenType::KEYWORD_FOR}
+    {"for", TokenType::KEYWORD_FOR},
+    {"window", TokenType::KEYWORD_WINDOW}
 };
 
 const std::vector<std::pair<std::string, TokenType>> Lexer::punctuatuators = {
@@ -77,6 +78,7 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::KEYWORD_FLOAT: return "float";
         case TokenType::KEYWORD_BOOL: return "bool";
         case TokenType::KEYWORD_FOR: return "for";
+        case TokenType::KEYWORD_WINDOW: return "window";
         case TokenType::PUNCTUATOR_LPAREN: return "(";
         case TokenType::PUNCTUATOR_RPAREN: return ")";
         case TokenType::PUNCTUATOR_LBRACE: return "{";

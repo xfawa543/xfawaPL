@@ -29,8 +29,10 @@ private:
     std::vector<std::string> errors;
     std::vector<std::string> warnings;
     bool hasMainFunction;
+    bool hasWindowStatements;
     llvm::BasicBlock* loopEndBB;
     OptimizationLevel optLevel;
+    int generatedWindowCount;
     
 public:
     LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod);
@@ -69,6 +71,10 @@ private:
     bool codegen(Module* mod);
     bool codegen(Function* func);
     bool codegen(ImportStatement* stmt);
+    llvm::Function* createWindowProc(WindowStatement* windowStmt, int windowId);
+    llvm::Function* createWindowRuntime(WindowStatement* windowStmt, int windowId, llvm::Function* wndProc);
+    llvm::GlobalVariable* getWindowCountGlobal();
+    uint32_t resolveWindowColor(const std::string& colorName) const;
     
     llvm::Value* codegen(NumberLiteral* expr);
     llvm::Value* codegen(FloatLiteral* expr);
@@ -90,6 +96,7 @@ private:
     llvm::Value* codegen(IfStatement* stmt);
     llvm::Value* codegen(WhileStatement* stmt);
     llvm::Value* codegen(ForInStatement* stmt);
+    llvm::Value* codegen(WindowStatement* stmt);
 };
 
 }

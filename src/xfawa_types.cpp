@@ -43,6 +43,7 @@ std::string nodeTypeToString(NodeType type) {
         case NodeType::FUNCTION_DECLARATION: return "function_declaration";
         case NodeType::FOR_IN_STATEMENT: return "for_in_statement";
         case NodeType::TYPED_ASSIGNMENT_STATEMENT: return "typed_assignment_statement";
+        case NodeType::WINDOW_STATEMENT: return "window_statement";
         case NodeType::DECLARATION: return "declaration";
         case NodeType::VARIABLE_DECLARATION: return "variable_declaration";
         case NodeType::FUNCTION: return "function";
@@ -74,6 +75,7 @@ std::string Token::toString() const {
         case TokenType::KEYWORD_FLOAT: typeStr = "float"; break;
         case TokenType::KEYWORD_BOOL: typeStr = "bool"; break;
         case TokenType::KEYWORD_FOR: typeStr = "for"; break;
+        case TokenType::KEYWORD_WINDOW: typeStr = "window"; break;
         case TokenType::PUNCTUATOR_LPAREN: typeStr = "("; break;
         case TokenType::PUNCTUATOR_RPAREN: typeStr = ")"; break;
         case TokenType::PUNCTUATOR_LBRACE: typeStr = "{"; break;
