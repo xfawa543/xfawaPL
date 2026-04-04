@@ -4,6 +4,34 @@
 
 namespace xfawa {
 
+namespace {
+
+bool isKeywordLikeNameToken(TokenType type) {
+    switch (type) {
+        case TokenType::IDENTIFIER:
+        case TokenType::KEYWORD_FN:
+        case TokenType::KEYWORD_IF:
+        case TokenType::KEYWORD_ELSE:
+        case TokenType::KEYWORD_WHILE:
+        case TokenType::KEYWORD_BREAK:
+        case TokenType::KEYWORD_RETURN:
+        case TokenType::KEYWORD_TRUE:
+        case TokenType::KEYWORD_FALSE:
+        case TokenType::KEYWORD_PRINT:
+        case TokenType::KEYWORD_IMPORT:
+        case TokenType::KEYWORD_INT:
+        case TokenType::KEYWORD_FLOAT:
+        case TokenType::KEYWORD_BOOL:
+        case TokenType::KEYWORD_FOR:
+        case TokenType::KEYWORD_WINDOW:
+            return true;
+        default:
+            return false;
+    }
+}
+
+}
+
 Parser::Parser(const std::vector<Token>& toks) : tokens(toks), current(0) {}
 
 const Token& Parser::peek() const {
@@ -96,10 +124,12 @@ std::unique_ptr<Module> Parser::parseModule() {
         return nullptr;
     }
     
-    if (!consume(TokenType::IDENTIFIER)) {
+    if (!isKeywordLikeNameToken(peek().type)) {
         addError("Expected module name after '#'");
         return nullptr;
     }
+
+    advance();
     
     std::string name = peek(-1).text;
     
@@ -143,8 +173,17 @@ std::unique_ptr<WindowStatement> Parser::parseWindowStatement() {
     auto windowDecl = std::make_unique<WindowStatement>(loc);
 
     while (!isAtEnd() && !peek().is(TokenType::PUNCTUATOR_RBRACE)) {
+        if (peek().is(TokenType::IDENTIFIER) && peek().text == "button" && peek(1).is(TokenType::PUNCTUATOR_LBRACE)) {
+            auto button = parseButtonStatement();
+            if (!button) {
+                return nullptr;
+            }
+            windowDecl->buttons.push_back(std::move(button));
+            continue;
+        }
+
         if (!consume(TokenType::IDENTIFIER)) {
-            addError("Expected window property name");
+            addError("Expected window property name or button block");
             return nullptr;
         }
 
@@ -199,6 +238,85 @@ std::unique_ptr<WindowStatement> Parser::parseWindowStatement() {
     }
 
     return windowDecl;
+}
+
+std::unique_ptr<ButtonStatement> Parser::parseButtonStatement() {
+    SourceLocation loc = peek().location;
+
+    if (!consume(TokenType::IDENTIFIER) || peek(-1).text != "button") {
+        return nullptr;
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_LBRACE)) {
+        addError("Expected '{' after 'button'");
+        return nullptr;
+    }
+
+    auto button = std::make_unique<ButtonStatement>(loc);
+
+    while (!isAtEnd() && !peek().is(TokenType::PUNCTUATOR_RBRACE)) {
+        if (peek().is(TokenType::IDENTIFIER) && peek(1).is(TokenType::PUNCTUATOR_COLON)) {
+            advance();
+            std::string propertyName = peek(-1).text;
+            consume(TokenType::PUNCTUATOR_COLON);
+
+            if (propertyName == "x") {
+                if (!consume(TokenType::NUMBER_LITERAL)) {
+                    addError("Expected integer literal for button x");
+                    return nullptr;
+                }
+                button->x = std::stoi(peek(-1).text);
+            } else if (propertyName == "y") {
+                if (!consume(TokenType::NUMBER_LITERAL)) {
+                    addError("Expected integer literal for button y");
+                    return nullptr;
+                }
+                button->y = std::stoi(peek(-1).text);
+            } else if (propertyName == "width") {
+                if (!consume(TokenType::NUMBER_LITERAL)) {
+                    addError("Expected integer literal for button width");
+                    return nullptr;
+                }
+                button->width = std::stoi(peek(-1).text);
+            } else if (propertyName == "height" || propertyName == "high") {
+                if (!consume(TokenType::NUMBER_LITERAL)) {
+                    addError("Expected integer literal for button height");
+                    return nullptr;
+                }
+                button->height = std::stoi(peek(-1).text);
+            } else if (propertyName == "text" || propertyName == "title") {
+                if (consume(TokenType::STRING_LITERAL) || consume(TokenType::IDENTIFIER)) {
+                    button->text = peek(-1).text;
+                } else {
+                    addError("Expected string or identifier for button text");
+                    return nullptr;
+                }
+            } else {
+                addError("Unknown button property: " + propertyName);
+                return nullptr;
+            }
+            continue;
+        }
+
+        auto stmt = parseStatement();
+        if (!stmt) {
+            addError("Expected button property or statement");
+            return nullptr;
+        }
+        button->body.push_back(std::move(stmt));
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_RBRACE)) {
+        addError("Expected '}' to close button block");
+        return nullptr;
+    }
+
+    if (button->width <= 0 || button->height <= 0) {
+        addError("Button width and height must be greater than zero");
+        return nullptr;
+    }
+
+    return button;
 }
 
 std::unique_ptr<Function> Parser::parseFunction() {

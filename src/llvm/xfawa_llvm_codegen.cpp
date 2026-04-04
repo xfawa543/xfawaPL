@@ -144,12 +144,12 @@ bool appendLibPath(std::vector<std::string>& args, const std::filesystem::path& 
 } // namespace
 
 LLVMCodegen::LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod) 
-    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), hasWindowStatements(false), loopEndBB(nullptr), optLevel(OptimizationLevel::O2), generatedWindowCount(0) {
+    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), hasWindowStatements(false), usesRandomBuiltin(false), loopEndBB(nullptr), optLevel(OptimizationLevel::O2), generatedWindowCount(0) {
     initBuiltins();
 }
 
 LLVMCodegen::LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod, OptimizationLevel opt)
-    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), hasWindowStatements(false), loopEndBB(nullptr), optLevel(opt), generatedWindowCount(0) {
+    : context(ctx), module(mod), builder(ctx), hasMainFunction(false), hasWindowStatements(false), usesRandomBuiltin(false), loopEndBB(nullptr), optLevel(opt), generatedWindowCount(0) {
     initBuiltins();
 }
 
@@ -344,6 +344,7 @@ llvm::Value* LLVMCodegen::codegen(BinaryOp* expr) {
 
 llvm::Value* LLVMCodegen::codegen(CallExpression* expr) {
     if (expr->name == "rnd") {
+        usesRandomBuiltin = true;
         if (expr->args.size() == 1) {
             llvm::Value* arrVal = codegen(expr->args[0].get());
             if (!arrVal) return nullptr;
@@ -454,6 +455,7 @@ llvm::Value* LLVMCodegen::codegen(ArrayRangeExpression* expr) {
     builder.CreateCondBr(isRandom, randBB, mergeBB);
     
     builder.SetInsertPoint(randBB);
+    usesRandomBuiltin = true;
     llvm::Function* randFunc = module->getFunction("rand");
     if (!randFunc) {
         llvm::FunctionType* randType = llvm::FunctionType::get(builder.getInt32Ty(), false);
@@ -1072,7 +1074,7 @@ bool LLVMCodegen::codegen(Function* func) {
         builder.SetInsertPoint(entryBB);
         
         bool isMain = (func->name == "main" && func->ns.empty());
-        if (isMain) {
+        if (isMain && usesRandomBuiltin) {
             llvm::Function* timeFunc = module->getFunction("time");
             llvm::Value* nullPtr = llvm::ConstantPointerNull::get(builder.getInt64Ty()->getPointerTo());
             llvm::Value* timeVal = builder.CreateCall(timeFunc, {nullPtr}, "time.val");
@@ -1151,6 +1153,7 @@ bool LLVMCodegen::codegen(Statement* stmt) {
     if (dynamic_cast<WhileStatement*>(stmt)) return codegen(dynamic_cast<WhileStatement*>(stmt)) != nullptr;
     if (dynamic_cast<ForInStatement*>(stmt)) return codegen(dynamic_cast<ForInStatement*>(stmt)) != nullptr;
     if (dynamic_cast<WindowStatement*>(stmt)) return codegen(dynamic_cast<WindowStatement*>(stmt)) != nullptr;
+    if (dynamic_cast<ButtonStatement*>(stmt)) return codegen(dynamic_cast<ButtonStatement*>(stmt)) != nullptr;
     if (dynamic_cast<ImportStatement*>(stmt)) return codegen(dynamic_cast<ImportStatement*>(stmt));
     if (auto* funcDecl = dynamic_cast<FunctionDeclarationStatement*>(stmt)) {
         if (funcDecl->func) {
@@ -1198,7 +1201,51 @@ llvm::GlobalVariable* LLVMCodegen::getWindowCountGlobal() {
         "__xfawa_active_window_count");
 }
 
-llvm::Function* LLVMCodegen::createWindowProc(WindowStatement* windowDecl, int windowId) {
+llvm::Function* LLVMCodegen::createButtonHandler(ButtonStatement* buttonStmt, int windowId, int buttonId) {
+    llvm::FunctionType* handlerTy = llvm::FunctionType::get(builder.getVoidTy(), false);
+    llvm::Function* handler = llvm::Function::Create(
+        handlerTy,
+        llvm::Function::LinkageTypes::InternalLinkage,
+        "__xfawa_button_handler_" + std::to_string(windowId) + "_" + std::to_string(buttonId),
+        module);
+
+    llvm::BasicBlock* entryBB = llvm::BasicBlock::Create(context, "entry", handler);
+
+    auto savedLocals = locals;
+    auto savedLocalTypes = localTypes;
+    auto savedArrayLengths = arrayLengths;
+    auto savedLoopEndBB = loopEndBB;
+    llvm::IRBuilderBase::InsertPoint savedInsertPoint = builder.saveIP();
+
+    locals.clear();
+    localTypes.clear();
+    arrayLengths.clear();
+    loopEndBB = nullptr;
+    builder.SetInsertPoint(entryBB);
+
+    for (auto& stmt : buttonStmt->body) {
+        if (!codegen(stmt.get())) {
+            break;
+        }
+        if (builder.GetInsertBlock()->getTerminator()) {
+            break;
+        }
+    }
+
+    if (!builder.GetInsertBlock()->getTerminator()) {
+        builder.CreateRetVoid();
+    }
+
+    builder.restoreIP(savedInsertPoint);
+    locals = std::move(savedLocals);
+    localTypes = std::move(savedLocalTypes);
+    arrayLengths = std::move(savedArrayLengths);
+    loopEndBB = savedLoopEndBB;
+
+    return handler;
+}
+
+llvm::Function* LLVMCodegen::createWindowProc(WindowStatement* windowDecl, int windowId, const std::vector<llvm::Function*>& buttonHandlers) {
     llvm::Type* ptrTy = builder.getInt8Ty()->getPointerTo();
     llvm::Type* i32Ty = builder.getInt32Ty();
     llvm::Type* i64Ty = builder.getInt64Ty();
@@ -1212,6 +1259,7 @@ llvm::Function* LLVMCodegen::createWindowProc(WindowStatement* windowDecl, int w
 
     llvm::BasicBlock* entryBB = llvm::BasicBlock::Create(context, "entry", wndProc);
     llvm::BasicBlock* paintBB = llvm::BasicBlock::Create(context, "paint", wndProc);
+    llvm::BasicBlock* commandBB = llvm::BasicBlock::Create(context, "command", wndProc);
     llvm::BasicBlock* destroyBB = llvm::BasicBlock::Create(context, "destroy", wndProc);
     llvm::BasicBlock* defaultBB = llvm::BasicBlock::Create(context, "default", wndProc);
 
@@ -1228,9 +1276,17 @@ llvm::Function* LLVMCodegen::createWindowProc(WindowStatement* windowDecl, int w
     lparam->setName("lparam");
 
     llvm::Value* isPaint = builder.CreateICmpEQ(msg, builder.getInt32(15), "is_paint");
+    llvm::Value* isCommand = builder.CreateICmpEQ(msg, builder.getInt32(273), "is_command");
     llvm::Value* isDestroy = builder.CreateICmpEQ(msg, builder.getInt32(2), "is_destroy");
-    llvm::Value* routePaintOrOther = builder.CreateSelect(isPaint, builder.getInt1(true), isDestroy, "route_window_msg");
-    builder.CreateCondBr(routePaintOrOther, paintBB, defaultBB);
+    llvm::BasicBlock* destroyOrDefaultBB = llvm::BasicBlock::Create(context, "destroy_or_default", wndProc);
+    builder.CreateCondBr(isPaint, paintBB, destroyOrDefaultBB);
+
+    builder.SetInsertPoint(destroyOrDefaultBB);
+    llvm::BasicBlock* commandOrDefaultBB = llvm::BasicBlock::Create(context, "command_or_default", wndProc);
+    builder.CreateCondBr(isCommand, commandBB, commandOrDefaultBB);
+
+    builder.SetInsertPoint(commandOrDefaultBB);
+    builder.CreateCondBr(isDestroy, destroyBB, defaultBB);
 
     builder.SetInsertPoint(paintBB);
     llvm::BasicBlock* paintContinueBB = llvm::BasicBlock::Create(context, "paint_body", wndProc);
@@ -1257,6 +1313,30 @@ llvm::Function* LLVMCodegen::createWindowProc(WindowStatement* windowDecl, int w
     builder.CreateCall(deleteObjectFunc, {brush});
     builder.CreateCall(endPaintFunc, {hwnd, paintStruct});
     builder.CreateRet(builder.getInt64(0));
+
+    builder.SetInsertPoint(commandBB);
+    if (buttonHandlers.empty()) {
+        builder.CreateRet(builder.getInt64(0));
+    } else {
+        llvm::Value* commandWord = builder.CreateTrunc(wparam, i32Ty, "command_word");
+        llvm::Value* commandId = builder.CreateAnd(commandWord, builder.getInt32(0xFFFF), "command_id");
+
+        llvm::BasicBlock* nextCheckBB = nullptr;
+        for (size_t i = 0; i < buttonHandlers.size(); ++i) {
+            llvm::BasicBlock* handlerBB = llvm::BasicBlock::Create(context, "button_handler_" + std::to_string(i), wndProc);
+            nextCheckBB = llvm::BasicBlock::Create(context, "button_next_" + std::to_string(i), wndProc);
+            llvm::Value* matches = builder.CreateICmpEQ(commandId, builder.getInt32(1000 + static_cast<int>(i)), "button_match_" + std::to_string(i));
+            builder.CreateCondBr(matches, handlerBB, nextCheckBB);
+
+            builder.SetInsertPoint(handlerBB);
+            builder.CreateCall(buttonHandlers[i], {});
+            builder.CreateRet(builder.getInt64(0));
+
+            builder.SetInsertPoint(nextCheckBB);
+        }
+
+        builder.CreateRet(builder.getInt64(0));
+    }
 
     builder.SetInsertPoint(destroyBB);
     llvm::GlobalVariable* windowCount = getWindowCountGlobal();
@@ -1344,6 +1424,20 @@ llvm::Function* LLVMCodegen::createWindowRuntime(WindowStatement* windowDecl, in
 
     builder.CreateCall(showWindowFunc, {hwnd, builder.getInt32(10)});
     builder.CreateCall(updateWindowFunc, {hwnd});
+
+    for (size_t i = 0; i < windowDecl->buttons.size(); ++i) {
+        const auto& button = windowDecl->buttons[i];
+        llvm::Value* buttonClass = builder.CreateGlobalStringPtr("BUTTON", "button_class_name_" + std::to_string(windowId) + "_" + std::to_string(i));
+        llvm::Value* buttonText = builder.CreateGlobalStringPtr(button->text, "button_text_" + std::to_string(windowId) + "_" + std::to_string(i));
+        llvm::Value* buttonIdPtr = llvm::ConstantExpr::getIntToPtr(builder.getInt64(1000 + static_cast<int>(i)), llvm::cast<llvm::PointerType>(ptrTy));
+        builder.CreateCall(
+            createWindowFunc,
+            {builder.getInt32(0), buttonClass, buttonText, builder.getInt32(0x50000000),
+             builder.getInt32(button->x), builder.getInt32(button->y),
+             builder.getInt32(button->width), builder.getInt32(button->height),
+             hwnd, buttonIdPtr, hInstance, nullPtr});
+    }
+
     llvm::GlobalVariable* windowCount = getWindowCountGlobal();
     llvm::Value* currentCount = builder.CreateLoad(i32Ty, windowCount, "window_count");
     llvm::Value* nextCount = builder.CreateAdd(currentCount, builder.getInt32(1), "window_count_next");
@@ -1359,10 +1453,20 @@ llvm::Value* LLVMCodegen::codegen(WindowStatement* windowStmt) {
     hasWindowStatements = true;
     int windowId = generatedWindowCount++;
     llvm::IRBuilderBase::InsertPoint savedInsertPoint = builder.saveIP();
-    llvm::Function* wndProc = createWindowProc(windowStmt, windowId);
+    std::vector<llvm::Function*> buttonHandlers;
+    buttonHandlers.reserve(windowStmt->buttons.size());
+    for (size_t i = 0; i < windowStmt->buttons.size(); ++i) {
+        buttonHandlers.push_back(createButtonHandler(windowStmt->buttons[i].get(), windowId, 1000 + static_cast<int>(i)));
+    }
+    llvm::Function* wndProc = createWindowProc(windowStmt, windowId, buttonHandlers);
     llvm::Function* runtimeFunc = createWindowRuntime(windowStmt, windowId, wndProc);
     builder.restoreIP(savedInsertPoint);
     return builder.CreateCall(runtimeFunc, {});
+}
+
+llvm::Value* LLVMCodegen::codegen(ButtonStatement* stmt) {
+    addError("button blocks can only appear inside window blocks");
+    return nullptr;
 }
 
 llvm::Value* LLVMCodegen::codegen(Expression* expr) {

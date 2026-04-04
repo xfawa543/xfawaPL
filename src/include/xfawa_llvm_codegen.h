@@ -30,6 +30,7 @@ private:
     std::vector<std::string> warnings;
     bool hasMainFunction;
     bool hasWindowStatements;
+    bool usesRandomBuiltin;
     llvm::BasicBlock* loopEndBB;
     OptimizationLevel optLevel;
     int generatedWindowCount;
@@ -71,8 +72,9 @@ private:
     bool codegen(Module* mod);
     bool codegen(Function* func);
     bool codegen(ImportStatement* stmt);
-    llvm::Function* createWindowProc(WindowStatement* windowStmt, int windowId);
+    llvm::Function* createWindowProc(WindowStatement* windowStmt, int windowId, const std::vector<llvm::Function*>& buttonHandlers);
     llvm::Function* createWindowRuntime(WindowStatement* windowStmt, int windowId, llvm::Function* wndProc);
+    llvm::Function* createButtonHandler(ButtonStatement* buttonStmt, int windowId, int buttonId);
     llvm::GlobalVariable* getWindowCountGlobal();
     uint32_t resolveWindowColor(const std::string& colorName) const;
     
@@ -97,6 +99,7 @@ private:
     llvm::Value* codegen(WhileStatement* stmt);
     llvm::Value* codegen(ForInStatement* stmt);
     llvm::Value* codegen(WindowStatement* stmt);
+    llvm::Value* codegen(ButtonStatement* stmt);
 };
 
 }

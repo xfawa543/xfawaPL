@@ -423,23 +423,55 @@ public:
     }
 };
 
+class ButtonStatement : public Statement {
+public:
+    int x = 20;
+    int y = 20;
+    int width = 120;
+    int height = 36;
+    std::string text = "button";
+    std::vector<std::unique_ptr<Statement>> body;
+
+    ButtonStatement(const SourceLocation& loc = SourceLocation())
+        : Statement(NodeType::BUTTON_STATEMENT, loc) {}
+
+    std::string toString() const override {
+        std::string result = "button {\n"
+                             "    x: " + std::to_string(x) + "\n"
+                             "    y: " + std::to_string(y) + "\n"
+                             "    width: " + std::to_string(width) + "\n"
+                             "    height: " + std::to_string(height) + "\n"
+                             "    text: \"" + text + "\"\n";
+        for (const auto& stmt : body) {
+            result += "    " + stmt->toString() + "\n";
+        }
+        result += "  }";
+        return result;
+    }
+};
+
 class WindowStatement : public Statement {
 public:
     int width = 800;
     int height = 600;
     std::string title = "xfawa";
     std::string color = "white";
+    std::vector<std::unique_ptr<ButtonStatement>> buttons;
 
     WindowStatement(const SourceLocation& loc = SourceLocation())
         : Statement(NodeType::WINDOW_STATEMENT, loc) {}
 
     std::string toString() const override {
-        return "window {\n"
+        std::string result = "window {\n"
                "  width: " + std::to_string(width) + "\n"
                "  height: " + std::to_string(height) + "\n"
                "  title: \"" + title + "\"\n"
-               "  color: " + color + "\n"
-               "}";
+               "  color: " + color + "\n";
+        for (const auto& button : buttons) {
+            result += "  " + button->toString() + "\n";
+        }
+        result += "}";
+        return result;
     }
 };
 

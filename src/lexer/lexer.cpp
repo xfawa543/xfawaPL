@@ -298,14 +298,21 @@ std::vector<Token> Lexer::tokenize() {
             continue;
         }
         
-        if (c == '%') {
+        if (c == '%' &&
+            peek(1) == 'i' &&
+            peek(2) == 'm' &&
+            peek(3) == 'p' &&
+            peek(4) == 'o' &&
+            peek(5) == 'r' &&
+            peek(6) == 't' &&
+            !isAlphaNumeric(peek(7)) &&
+            peek(7) != '_') {
             advance();
-            if (peek() == 'i' || peek() == 'I') {
-                lexIdentifier();
-            } else {
-                addError("Expected 'import' after '%'");
-                advance();
+            std::string text;
+            while (!isAtEnd() && (isAlphaNumeric(peek()) || peek() == '_')) {
+                text += advance();
             }
+            addToken(TokenType::KEYWORD_IMPORT, text);
             continue;
         }
         

@@ -43,7 +43,7 @@ namespace xfawa {
     int g_debug_global = 0;
 }
 
-const char* COMPILER_VERSION = "1.0.0-a.9";
+const char* COMPILER_VERSION = "1.0.0-a.10";
 const char* MODS_KERNEL_VERSION = "mods-a-1.0.1";
 
 static xfawa::LogLanguage g_log_language = xfawa::LogLanguage::EN;
