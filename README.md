@@ -65,7 +65,7 @@ Design goal:
 xfawa currently depends on:
 
 - LLVM  
-- System toolchain (Windows / Linux)  
+- System toolchain (Windows sdk)  
 
 Note:
 The project aims to reduce unnecessary dependencies but does not avoid system-level toolchains.
