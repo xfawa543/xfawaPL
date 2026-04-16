@@ -38,38 +38,9 @@ Minimize external dependencies by integrating standard library into the compiler
 
 ---
 
-## 🧪 Syntax Examples (Experimental)
+## 🧪 Syntax Examples
 
 These examples represent current design ideas and may change in the future.
-
-### ✔ Variable Declaration
-```
-let x = 10
-let name = "xfawa"
-```
-
-### ✔ Function Definition
-```
-fn add(a, b) {
-    return a + b
-}
-```
-
-### ✔ Conditional Statement
-```
-if x > 10 {
-    print("large")
-} else {
-    print("small")
-}
-```
-
-### ✔ Loop
-```
-for i in 0..10 {
-    print(i)
-}
-```
 
 ---
 
