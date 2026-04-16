@@ -61,7 +61,7 @@ mods 是 xfawa 的核心机制，用于在编译早期阶段修改源码结构�
 xfawa 当前依赖：
 
 - LLVM  
-- 系统工具链（Windows / Linux）  
+- 系统工具链（Windows sdk）  
 
 注意：  
 项目目标是减少非必要依赖，但不会限制系统级工具的使用。
