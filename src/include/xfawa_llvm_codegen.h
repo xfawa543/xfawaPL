@@ -34,6 +34,7 @@ private:
     llvm::BasicBlock* loopEndBB;
     OptimizationLevel optLevel;
     int generatedWindowCount;
+    int activeWindowId;
     
 public:
     LLVMCodegen(llvm::LLVMContext& ctx, llvm::Module* mod);
@@ -74,8 +75,9 @@ private:
     bool codegen(ImportStatement* stmt);
     llvm::Function* createWindowProc(WindowStatement* windowStmt, int windowId, const std::vector<llvm::Function*>& buttonHandlers);
     llvm::Function* createWindowRuntime(WindowStatement* windowStmt, int windowId, llvm::Function* wndProc);
-    llvm::Function* createButtonHandler(ButtonStatement* buttonStmt, int windowId, int buttonId);
+    llvm::Function* createButtonHandler(ButtonStatement* buttonStmt, int windowId, int buttonId, int printWindowId);
     llvm::GlobalVariable* getWindowCountGlobal();
+    llvm::GlobalVariable* getWindowHandleGlobal(int windowId);
     uint32_t resolveWindowColor(const std::string& colorName) const;
     
     llvm::Value* codegen(NumberLiteral* expr);
@@ -100,6 +102,8 @@ private:
     llvm::Value* codegen(ForInStatement* stmt);
     llvm::Value* codegen(WindowStatement* stmt);
     llvm::Value* codegen(ButtonStatement* stmt);
+    llvm::Value* codegen(TextStatement* stmt);
+    llvm::Value* codegen(BoxStatement* stmt);
 };
 
 }

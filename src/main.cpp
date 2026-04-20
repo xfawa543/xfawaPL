@@ -6,6 +6,7 @@
 #include <cstring>
 #include <cstdio>
 #include <regex>
+#include <filesystem>
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -43,8 +44,8 @@ namespace xfawa {
     int g_debug_global = 0;
 }
 
-const char* COMPILER_VERSION = "1.0.0-a.10";
-const char* MODS_KERNEL_VERSION = "mods-a-1.0.1";
+const char* COMPILER_VERSION = "1.0.0-a.12";
+const char* MODS_KERNEL_VERSION = "mods-a-1.0.2";
 
 static xfawa::LogLanguage g_log_language = xfawa::LogLanguage::EN;
 
@@ -65,6 +66,22 @@ std::string readFile(const std::string& path) {
         return "";
     }
     return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+}
+
+bool hasRequiredInternalComponents() {
+#if defined(_WIN32)
+    char modulePath[MAX_PATH] = {};
+    DWORD length = GetModuleFileNameA(nullptr, modulePath, MAX_PATH);
+    if (length == 0 || length >= MAX_PATH) {
+        return false;
+    }
+
+    std::filesystem::path compilerPath(modulePath);
+    std::filesystem::path xraphicsLib = compilerPath.parent_path() / "internal" / "xraphics.lib";
+    return std::filesystem::exists(xraphicsLib);
+#else
+    return true;
+#endif
 }
 
 bool ensureDirectoryExists(const std::string& dirPath) {
@@ -278,6 +295,12 @@ bool processMods(xfawa::ModsSystem& modsSystem, const std::string& source, std::
 
 int main(int argc, char** argv) {
     xfawa::ErrorReporter::initialize();
+
+    if (!hasRequiredInternalComponents()) {
+        std::cerr << "Xraphics component missing. Please reinstall xfawa." << std::endl;
+        xfawa::ErrorReporter::cleanup();
+        return 1;
+    }
     
     std::string inputFile;
     std::string outputFile = "";

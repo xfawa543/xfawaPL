@@ -41,6 +41,8 @@ enum class NodeType {
     TYPED_ASSIGNMENT_STATEMENT,
     WINDOW_STATEMENT,
     BUTTON_STATEMENT,
+    TEXT_STATEMENT,
+    BOX_STATEMENT,
     
     DECLARATION,
     VARIABLE_DECLARATION,
@@ -100,7 +102,7 @@ public:
         return nodeType >= NodeType::EXPRESSION && nodeType <= NodeType::ARRAY_RANGE_EXPRESSION; 
     }
     bool isStatement() const { 
-        return nodeType >= NodeType::STATEMENT && nodeType <= NodeType::BUTTON_STATEMENT; 
+        return nodeType >= NodeType::STATEMENT && nodeType <= NodeType::BOX_STATEMENT; 
     }
 };
 

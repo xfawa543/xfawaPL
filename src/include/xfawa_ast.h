@@ -227,11 +227,15 @@ public:
 class PrintStatement : public Statement {
 public:
     std::unique_ptr<Expression> expr;
+    std::string outputTarget;
     
     PrintStatement(std::unique_ptr<Expression> e, const SourceLocation& loc = SourceLocation()) 
         : Statement(NodeType::PRINT_STATEMENT, loc), expr(std::move(e)) {}
     
     std::string toString() const override {
+        if (!outputTarget.empty()) {
+            return "print(" + expr->toString() + ", " + outputTarget + ")";
+        }
         return "print(" + expr->toString() + ")";
     }
 };
@@ -450,13 +454,62 @@ public:
     }
 };
 
+class TextStatement : public Statement {
+public:
+    int x = 20;
+    int y = 20;
+    int width = 160;
+    int height = 24;
+    std::string text = "text";
+
+    TextStatement(const SourceLocation& loc = SourceLocation())
+        : Statement(NodeType::TEXT_STATEMENT, loc) {}
+
+    std::string toString() const override {
+        return "text {\n"
+               "    x: " + std::to_string(x) + "\n"
+               "    y: " + std::to_string(y) + "\n"
+               "    width: " + std::to_string(width) + "\n"
+               "    height: " + std::to_string(height) + "\n"
+               "    text: \"" + text + "\"\n"
+               "  }";
+    }
+};
+
+class BoxStatement : public Statement {
+public:
+    int x = 20;
+    int y = 20;
+    int width = 240;
+    int height = 120;
+    std::string id = "output";
+    std::string text = "";
+
+    BoxStatement(const SourceLocation& loc = SourceLocation())
+        : Statement(NodeType::BOX_STATEMENT, loc) {}
+
+    std::string toString() const override {
+        return "box {\n"
+               "    id: " + id + "\n"
+               "    x: " + std::to_string(x) + "\n"
+               "    y: " + std::to_string(y) + "\n"
+               "    width: " + std::to_string(width) + "\n"
+               "    height: " + std::to_string(height) + "\n"
+               "    text: \"" + text + "\"\n"
+               "  }";
+    }
+};
+
 class WindowStatement : public Statement {
 public:
     int width = 800;
     int height = 600;
     std::string title = "xfawa";
     std::string color = "white";
+    std::string style = "";
     std::vector<std::unique_ptr<ButtonStatement>> buttons;
+    std::vector<std::unique_ptr<TextStatement>> texts;
+    std::vector<std::unique_ptr<BoxStatement>> boxes;
 
     WindowStatement(const SourceLocation& loc = SourceLocation())
         : Statement(NodeType::WINDOW_STATEMENT, loc) {}
@@ -467,8 +520,17 @@ public:
                "  height: " + std::to_string(height) + "\n"
                "  title: \"" + title + "\"\n"
                "  color: " + color + "\n";
+        if (!style.empty()) {
+            result += "  style: \"" + style + "\"\n";
+        }
         for (const auto& button : buttons) {
             result += "  " + button->toString() + "\n";
+        }
+        for (const auto& textItem : texts) {
+            result += "  " + textItem->toString() + "\n";
+        }
+        for (const auto& box : boxes) {
+            result += "  " + box->toString() + "\n";
         }
         result += "}";
         return result;

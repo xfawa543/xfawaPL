@@ -38,6 +38,109 @@ mods 系统允许在编译前对语法进行扩展或重写，使语言具备一
 
 这些语法为当前设计或实验阶段内容，未来可能调整。
 
+``` 代码块定义 
+#your_block_name {
+
+}
+```
+``` 函数定义（需要在代码块内）
+#your_block_name {
+    fn main() {
+
+    }
+}
+```
+注：一个代码块不能定义两个函数，后续可能会开放，如果现在想定义另外函数，只能在定义的第一个函数内定义
+``` print示例
+#your_block_name {
+    fn main() {
+       print("hello")
+    }
+}
+```
+``` 变量声明（显式类型）
+#your_block_name {
+    fn main() {
+        int a = 1
+        float b = 3.14
+        bool c = true
+    }
+}
+```
+``` 变量声明（隐式类型，会产生编译警告）
+#your_block_name {
+    fn main() {
+        a = 1
+    }
+}
+```
+``` if/else示例
+#your_block_name {
+    fn main() {
+        int a = 1
+        int b = 2
+
+        if b > a {
+            print("b 大于 a")
+        }
+        else {
+            print("b 不大于 a")
+        }
+    }
+}
+```
+``` 数组定义
+#your_block_name {
+    fn main() {
+        int a = [1, 2, 3]
+        int b = [1...5]
+    }
+}
+```
+``` 数组索引
+#your_block_name {
+    fn main() {
+        int a = [1, 2, 3]
+        print(a[0])
+        print(a[-1])
+    }
+}
+```
+``` for-in 循环
+#your_block_name {
+    fn main() {
+        int a = [1, 2, 3, 4, 5]
+        for i in a {
+            print(i)
+        }
+    }
+}
+```
+``` while循环
+#your_block_name {
+    fn main() {
+        int a = 0
+        while (a < 10) {
+            print("循环：")
+            print(a)
+            a = a + 1
+        }
+    }
+}
+```
+``` window原生窗口示例
+#your_block_name {
+    fn main() {
+        window {
+            width: 420
+            height: 260
+            title: "xfawa window"
+            color: red
+        }
+    }
+}
+```
+
 ---
 
 ## 🧩 mods 系统

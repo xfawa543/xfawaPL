@@ -23,7 +23,12 @@ public:
     static bool isValidUserNamespace(const std::string& ns) {
         if (ns.empty()) return true;
         if (isReserved(ns)) return false;
-        return isPublic(ns);
+        size_t colonCount = 0;
+        for (char c : ns) {
+            if (c == ':') colonCount++;
+        }
+        if (colonCount > 0) return false;
+        return true;
     }
     
     static std::string getReservedNamespacesError(const std::string& ns) {
@@ -31,7 +36,7 @@ public:
     }
     
     static std::string getInvalidNamespaceError(const std::string& ns) {
-        return "Invalid namespace '" + ns + "'. Only 'pub' namespace is allowed for public functions.";
+        return "Invalid namespace '" + ns + "'. Multi-level namespaces (containing ':') are not allowed.";
     }
 };
 

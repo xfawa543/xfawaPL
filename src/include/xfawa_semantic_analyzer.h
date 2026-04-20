@@ -101,7 +101,7 @@ private:
                 return false;
             }
             
-            if (!NamespacePolicy::isPublic(func->ns)) {
+            if (!NamespacePolicy::isValidUserNamespace(func->ns)) {
                 errors.push_back(NamespacePolicy::getInvalidNamespaceError(func->ns) + 
                     " at line " + std::to_string(func->location.line));
                 return false;
@@ -121,14 +121,13 @@ private:
         info.location = func->location;
         
         if (info.isPublic) {
-            if (publicFunctions.find(key) != publicFunctions.end()) {
-                errors.push_back("Duplicate public function '" + func->ns + ":" + func->name + 
-                    "' at line " + std::to_string(func->location.line));
-                return false;
+            if (allFunctions.find(key) == allFunctions.end()) {
+                publicFunctions[key] = info;
             }
-            publicFunctions[key] = info;
         } else {
-            privateFunctions[key] = info;
+            if (allFunctions.find(key) == allFunctions.end()) {
+                privateFunctions[key] = info;
+            }
         }
         
         if (func->body) {
@@ -250,7 +249,7 @@ private:
                 return false;
             }
             
-            if (!NamespacePolicy::isPublic(call->ns)) {
+            if (!NamespacePolicy::isValidUserNamespace(call->ns)) {
                 errors.push_back(NamespacePolicy::getInvalidNamespaceError(call->ns) + 
                     " at line " + std::to_string(call->location.line));
                 return false;

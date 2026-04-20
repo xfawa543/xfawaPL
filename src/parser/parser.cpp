@@ -181,9 +181,25 @@ std::unique_ptr<WindowStatement> Parser::parseWindowStatement() {
             windowDecl->buttons.push_back(std::move(button));
             continue;
         }
+        if (peek().is(TokenType::IDENTIFIER) && peek().text == "text" && peek(1).is(TokenType::PUNCTUATOR_LBRACE)) {
+            auto textItem = parseTextStatement();
+            if (!textItem) {
+                return nullptr;
+            }
+            windowDecl->texts.push_back(std::move(textItem));
+            continue;
+        }
+        if (peek().is(TokenType::IDENTIFIER) && peek().text == "box" && peek(1).is(TokenType::PUNCTUATOR_LBRACE)) {
+            auto boxItem = parseBoxStatement();
+            if (!boxItem) {
+                return nullptr;
+            }
+            windowDecl->boxes.push_back(std::move(boxItem));
+            continue;
+        }
 
         if (!consume(TokenType::IDENTIFIER)) {
-            addError("Expected window property name or button block");
+            addError("Expected window property name, button block, text block, or box block");
             return nullptr;
         }
 
@@ -219,6 +235,13 @@ std::unique_ptr<WindowStatement> Parser::parseWindowStatement() {
                 windowDecl->color = peek(-1).text;
             } else {
                 addError("Expected color name for window color");
+                return nullptr;
+            }
+        } else if (propertyName == "style") {
+            if (consume(TokenType::STRING_LITERAL) || consume(TokenType::IDENTIFIER)) {
+                windowDecl->style = peek(-1).text;
+            } else {
+                addError("Expected string or identifier for window style");
                 return nullptr;
             }
         } else {
@@ -317,6 +340,165 @@ std::unique_ptr<ButtonStatement> Parser::parseButtonStatement() {
     }
 
     return button;
+}
+
+std::unique_ptr<TextStatement> Parser::parseTextStatement() {
+    SourceLocation loc = peek().location;
+
+    if (!consume(TokenType::IDENTIFIER) || peek(-1).text != "text") {
+        return nullptr;
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_LBRACE)) {
+        addError("Expected '{' after 'text'");
+        return nullptr;
+    }
+
+    auto textItem = std::make_unique<TextStatement>(loc);
+
+    while (!isAtEnd() && !peek().is(TokenType::PUNCTUATOR_RBRACE)) {
+        if (!consume(TokenType::IDENTIFIER)) {
+            addError("Expected text property name");
+            return nullptr;
+        }
+
+        std::string propertyName = peek(-1).text;
+        if (!consume(TokenType::PUNCTUATOR_COLON)) {
+            addError("Expected ':' after text property '" + propertyName + "'");
+            return nullptr;
+        }
+
+        if (propertyName == "x") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for text x");
+                return nullptr;
+            }
+            textItem->x = std::stoi(peek(-1).text);
+        } else if (propertyName == "y") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for text y");
+                return nullptr;
+            }
+            textItem->y = std::stoi(peek(-1).text);
+        } else if (propertyName == "width") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for text width");
+                return nullptr;
+            }
+            textItem->width = std::stoi(peek(-1).text);
+        } else if (propertyName == "height" || propertyName == "high") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for text height");
+                return nullptr;
+            }
+            textItem->height = std::stoi(peek(-1).text);
+        } else if (propertyName == "text" || propertyName == "title") {
+            if (consume(TokenType::STRING_LITERAL) || consume(TokenType::IDENTIFIER)) {
+                textItem->text = peek(-1).text;
+            } else {
+                addError("Expected string or identifier for text content");
+                return nullptr;
+            }
+        } else {
+            addError("Unknown text property: " + propertyName);
+            return nullptr;
+        }
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_RBRACE)) {
+        addError("Expected '}' to close text block");
+        return nullptr;
+    }
+
+    if (textItem->width <= 0 || textItem->height <= 0) {
+        addError("Text width and height must be greater than zero");
+        return nullptr;
+    }
+
+    return textItem;
+}
+
+std::unique_ptr<BoxStatement> Parser::parseBoxStatement() {
+    SourceLocation loc = peek().location;
+
+    if (!consume(TokenType::IDENTIFIER) || peek(-1).text != "box") {
+        return nullptr;
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_LBRACE)) {
+        addError("Expected '{' after 'box'");
+        return nullptr;
+    }
+
+    auto boxItem = std::make_unique<BoxStatement>(loc);
+
+    while (!isAtEnd() && !peek().is(TokenType::PUNCTUATOR_RBRACE)) {
+        if (!consume(TokenType::IDENTIFIER)) {
+            addError("Expected box property name");
+            return nullptr;
+        }
+
+        std::string propertyName = peek(-1).text;
+        if (!consume(TokenType::PUNCTUATOR_COLON)) {
+            addError("Expected ':' after box property '" + propertyName + "'");
+            return nullptr;
+        }
+
+        if (propertyName == "id") {
+            if (consume(TokenType::IDENTIFIER) || consume(TokenType::STRING_LITERAL)) {
+                boxItem->id = peek(-1).text;
+            } else {
+                addError("Expected identifier or string for box id");
+                return nullptr;
+            }
+        } else if (propertyName == "x") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for box x");
+                return nullptr;
+            }
+            boxItem->x = std::stoi(peek(-1).text);
+        } else if (propertyName == "y") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for box y");
+                return nullptr;
+            }
+            boxItem->y = std::stoi(peek(-1).text);
+        } else if (propertyName == "width") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for box width");
+                return nullptr;
+            }
+            boxItem->width = std::stoi(peek(-1).text);
+        } else if (propertyName == "height" || propertyName == "high") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for box height");
+                return nullptr;
+            }
+            boxItem->height = std::stoi(peek(-1).text);
+        } else if (propertyName == "text" || propertyName == "title") {
+            if (consume(TokenType::STRING_LITERAL) || consume(TokenType::IDENTIFIER)) {
+                boxItem->text = peek(-1).text;
+            } else {
+                addError("Expected string or identifier for box text");
+                return nullptr;
+            }
+        } else {
+            addError("Unknown box property: " + propertyName);
+            return nullptr;
+        }
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_RBRACE)) {
+        addError("Expected '}' to close box block");
+        return nullptr;
+    }
+
+    if (boxItem->width <= 0 || boxItem->height <= 0) {
+        addError("Box width and height must be greater than zero");
+        return nullptr;
+    }
+
+    return boxItem;
 }
 
 std::unique_ptr<Function> Parser::parseFunction() {
@@ -451,13 +633,24 @@ std::unique_ptr<PrintStatement> Parser::parsePrintStatement() {
     if (!expr) {
         return nullptr;
     }
+
+    auto printStmt = std::make_unique<PrintStatement>(std::move(expr), loc);
+
+    if (consume(TokenType::PUNCTUATOR_COMMA)) {
+        if (consume(TokenType::IDENTIFIER)) {
+            printStmt->outputTarget = peek(-1).text;
+        } else {
+            addError("Expected output box identifier after ',' in print statement");
+            return nullptr;
+        }
+    }
     
     if (!consume(TokenType::PUNCTUATOR_RPAREN)) {
         addError("Expected ')' after print argument");
         return nullptr;
     }
     
-    return std::make_unique<PrintStatement>(std::move(expr), loc);
+    return printStmt;
 }
 
 std::unique_ptr<AssignmentStatement> Parser::parseAssignmentStatement() {

@@ -44,6 +44,9 @@ std::string nodeTypeToString(NodeType type) {
         case NodeType::FOR_IN_STATEMENT: return "for_in_statement";
         case NodeType::TYPED_ASSIGNMENT_STATEMENT: return "typed_assignment_statement";
         case NodeType::WINDOW_STATEMENT: return "window_statement";
+        case NodeType::BUTTON_STATEMENT: return "button_statement";
+        case NodeType::TEXT_STATEMENT: return "text_statement";
+        case NodeType::BOX_STATEMENT: return "box_statement";
         case NodeType::DECLARATION: return "declaration";
         case NodeType::VARIABLE_DECLARATION: return "variable_declaration";
         case NodeType::FUNCTION: return "function";
