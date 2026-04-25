@@ -54,6 +54,7 @@ struct XRBoxCommand {
     int width;
     int height;
     std::string text;
+    int scrollOffset = 0;
 };
 
 HWND g_window = nullptr;
@@ -250,15 +251,29 @@ void paintBox(HDC dc, const XRBoxCommand& box) {
     SelectObject(dc, oldPen);
     DeleteObject(brush);
 
+    HRGN oldClipRegion = CreateRectRgn(0, 0, 0, 0);
+    int hadClipRegion = GetClipRgn(dc, oldClipRegion);
+    
+    HRGN boxClipRegion = CreateRectRgn(outer.left + 1, outer.top + 1, outer.right - 1, outer.bottom - 1);
+    SelectClipRgn(dc, boxClipRegion);
+
     RECT inner{
         outer.left + 8,
-        outer.top + 8,
+        outer.top + 8 - box.scrollOffset,
         std::max(outer.left + 8, outer.right - 8),
-        std::max(outer.top + 8, outer.bottom - 8)
+        outer.top + 8 - box.scrollOffset + 10000
     };
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(0, 0, 0));
     DrawTextA(dc, box.text.c_str(), -1, &inner, DT_LEFT | DT_TOP | DT_WORDBREAK);
+
+    if (hadClipRegion == 1) {
+        SelectClipRgn(dc, oldClipRegion);
+    } else {
+        SelectClipRgn(dc, nullptr);
+    }
+    DeleteObject(oldClipRegion);
+    DeleteObject(boxClipRegion);
 }
 
 XRBoxCommand* findBoxById(const std::string& id) {
@@ -277,6 +292,20 @@ bool pointInButton(const XRButtonCommand& button, int x, int y) {
            y < button.y + button.height;
 }
 
+bool pointInBox(const XRBoxCommand& box, int x, int y) {
+    int effectiveHeight = std::max(box.height, 60);
+    return x >= box.x &&
+           x < box.x + box.width &&
+           y >= box.y &&
+           y < box.y + effectiveHeight;
+}
+
+int calculateTextHeight(HDC dc, const std::string& text, int width) {
+    RECT rect{0, 0, width, 0};
+    DrawTextA(dc, text.c_str(), -1, &rect, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_CALCRECT);
+    return rect.bottom - rect.top;
+}
+
 LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_LBUTTONDOWN: {
@@ -290,6 +319,38 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                     return 0;
                 }
             }
+            break;
+        }
+        case WM_MOUSEWHEEL: {
+            int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            POINT pt;
+            pt.x = GET_X_LPARAM(lParam);
+            pt.y = GET_Y_LPARAM(lParam);
+            ScreenToClient(hwnd, &pt);
+            
+            HDC dc = GetDC(hwnd);
+            for (auto& box : g_boxes) {
+                if (pointInBox(box, pt.x, pt.y)) {
+                    int textHeight = calculateTextHeight(dc, box.text, box.width - 16);
+                    int visibleHeight = box.height - 16;
+                    
+                    if (textHeight > visibleHeight) {
+                        int scrollAmount = delta / WHEEL_DELTA * 20;
+                        box.scrollOffset -= scrollAmount;
+                        if (box.scrollOffset < 0) {
+                            box.scrollOffset = 0;
+                        }
+                        int maxScroll = textHeight - visibleHeight;
+                        if (box.scrollOffset > maxScroll) {
+                            box.scrollOffset = maxScroll;
+                        }
+                        InvalidateRect(hwnd, nullptr, FALSE);
+                        ReleaseDC(hwnd, dc);
+                        return 0;
+                    }
+                }
+            }
+            ReleaseDC(hwnd, dc);
             break;
         }
         case WM_ERASEBKGND:
@@ -419,6 +480,7 @@ extern "C" int xr_poll_events() {
         TranslateMessage(&msg);
         DispatchMessageA(&msg);
     }
+    Sleep(1);
     return g_shouldClose ? 0 : 1;
 }
 
