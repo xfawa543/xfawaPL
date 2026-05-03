@@ -6,11 +6,15 @@ std::string varTypeToString(VarType type) {
     switch (type) {
         case VarType::UNKNOWN: return "auto";
         case VarType::INT: return "int";
+        case VarType::LONG: return "long";
         case VarType::FLOAT: return "float";
         case VarType::BOOL: return "bool";
+        case VarType::STRING: return "string";
         case VarType::ARRAY_INT: return "int[]";
+        case VarType::ARRAY_LONG: return "long[]";
         case VarType::ARRAY_FLOAT: return "float[]";
         case VarType::ARRAY_BOOL: return "bool[]";
+        case VarType::ARRAY_STRING: return "string[]";
         default: return "unknown";
     }
 }
@@ -62,6 +66,7 @@ std::string Token::toString() const {
         case TokenType::END_OF_FILE: typeStr = "EOF"; break;
         case TokenType::IDENTIFIER: typeStr = "identifier"; break;
         case TokenType::NUMBER_LITERAL: typeStr = "number"; break;
+        case TokenType::LONG_LITERAL: typeStr = "long"; break;
         case TokenType::STRING_LITERAL: typeStr = "string"; break;
         case TokenType::FLOAT_LITERAL: typeStr = "float"; break;
         case TokenType::KEYWORD_FN: typeStr = "fn"; break;
@@ -75,8 +80,10 @@ std::string Token::toString() const {
         case TokenType::KEYWORD_PRINT: typeStr = "print"; break;
         case TokenType::KEYWORD_IMPORT: typeStr = "import"; break;
         case TokenType::KEYWORD_INT: typeStr = "int"; break;
+        case TokenType::KEYWORD_LONG: typeStr = "long"; break;
         case TokenType::KEYWORD_FLOAT: typeStr = "float"; break;
         case TokenType::KEYWORD_BOOL: typeStr = "bool"; break;
+        case TokenType::KEYWORD_STRING: typeStr = "string"; break;
         case TokenType::KEYWORD_FOR: typeStr = "for"; break;
         case TokenType::KEYWORD_WINDOW: typeStr = "window"; break;
         case TokenType::PUNCTUATOR_LPAREN: typeStr = "("; break;

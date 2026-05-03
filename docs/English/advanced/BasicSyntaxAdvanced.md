@@ -1,110 +1,77 @@
 # Basic Syntax Advanced
 
-This document covers advanced techniques and combined usage of xfawaPL basic syntax.
+This document introduces advanced techniques and combined usage of xfawaPL basic syntax.
 
 ---
 
-## Advanced Block Usage
+## Advanced Code Block Usage
 
-### Block Nesting and Modular Design
+### Code Block Nesting and Modular Design
 
-xfawaPL supports multiple blocks working together for modular program design.
+xfawaPL supports multiple code blocks working together to achieve modular program design.
 
 ```xfawa
 #math_utils {
-    fn main() {
-        fn pub:add(a, b) {
-            return a + b
-        }
-        
-        fn pub:subtract(a, b) {
-            return a - b
-        }
-        
-        fn pub:multiply(a, b) {
-            return a * b
-        }
-        
-        fn pub:divide(a, b) {
-            if b != 0 {
-                return a / b
-            }
-            return 0
-        }
+    fn add(a, b) {
+        print(a + b)
     }
-}
-
-#string_utils {
-    fn main() {
-        fn pub:repeat(str, times) {
-            string result = ""
-            int i = 0
-            while i < times {
-                result = result + str
-                i = i + 1
-            }
-            return result
-        }
-        
-        fn pub:pad_left(str, length) {
-            int diff = length - len(str)
-            if diff > 0 {
-                return repeat(" ", diff) + str
-            }
-            return str
-        }
+    
+    fn subtract(a, b) {
+        print(a - b)
+    }
+    
+    fn multiply(a, b) {
+        print(a * b)
     }
 }
 
 #app {
     fn main() {
-        int sum = math_utils:add(10, 20)
-        print("Sum: " + sum)
-        
-        string padded = string_utils:pad_left("Hello", 10)
-        print("Padded: " + padded)
+        print("=== Math Utils ===")
+        math_utils:add(10, 20)
+        math_utils:subtract(50, 15)
+        math_utils:multiply(6, 7)
     }
 }
 ```
 
-### Dependency Management Between Blocks
+### Dependency Management Between Code Blocks
 
 ```xfawa
 #config {
-    fn main() {
-        fn pub:get_app_name() {
-            return "MyApp"
-        }
-        
-        fn pub:get_version() {
-            return "1.0.0"
-        }
-        
-        fn pub:get_max_retries() {
-            return 3
-        }
+    fn get_app_name() {
+        print("MyApp")
+    }
+    
+    fn get_version() {
+        print("1.0.0")
     }
 }
 
 #logger {
-    fn main() {
-        fn pub:log(message) {
-            string app = config:get_app_name()
-            print("[" + app + "] " + message)
-        }
-        
-        fn pub:error(message) {
-            log("ERROR: " + message)
-        }
-        
-        fn pub:info(message) {
-            log("INFO: " + message)
-        }
+    fn log(message) {
+        print("[LOG] ")
+        print(message)
+    }
+    
+    fn error(message) {
+        print("[ERROR] ")
+        print(message)
+    }
+    
+    fn info(message) {
+        print("[INFO] ")
+        print(message)
     }
 }
 
 #app {
     fn main() {
+        print("App: ")
+        config:get_app_name()
+        print("Version: ")
+        config:get_version()
+        
         logger:info("Application started")
         logger:error("Something went wrong")
     }
@@ -115,102 +82,75 @@ xfawaPL supports multiple blocks working together for modular program design.
 
 ## Advanced Function Usage
 
-### Function Nesting and Scope
+### Function Parameters and Calls
 
-xfawaPL supports nested function definitions for local scope.
+xfawaPL functions support parameter passing for code reuse.
 
 ```xfawa
-#nested_functions {
+#function_demo {
+    fn greet(name) {
+        print("Hello, ")
+        print(name)
+    }
+    
+    fn calculate(a, b, c) {
+        print("Sum: ")
+        print(a + b + c)
+        print("Product: ")
+        print(a * b * c)
+    }
+    
     fn main() {
-        fn outer(x) {
-            print("Outer: " + x)
-            
-            fn inner(y) {
-                print("Inner: " + y)
-                return x + y
-            }
-            
-            return inner(x * 2)
-        }
-        
-        int result = outer(5)
-        print("Result: " + result)
+        greet("Alice")
+        greet("Bob")
+        calculate(2, 3, 4)
     }
 }
 ```
 
-### Recursive Functions
+### Multi-Code Block Function Collaboration
 
 ```xfawa
-#recursion {
-    fn main() {
-        fn factorial(n) {
-            if n <= 1 {
-                return 1
-            }
-            return n * factorial(n - 1)
+#validator {
+    fn check_positive(n) {
+        if n > 0 {
+            print(1)
         }
-        
-        fn fibonacci(n) {
-            if n <= 1 {
-                return n
-            }
-            return fibonacci(n - 1) + fibonacci(n - 2)
+        else {
+            print(0)
         }
-        
-        fn gcd(a, b) {
-            if b == 0 {
-                return a
+    }
+    
+    fn check_range(n, min, max) {
+        if n >= min {
+            if n <= max {
+                print(1)
             }
-            return gcd(b, a % b)
+            else {
+                print(0)
+            }
         }
-        
-        print("5! = " + factorial(5))
-        print("Fib(10) = " + fibonacci(10))
-        print("GCD(48, 18) = " + gcd(48, 18))
+        else {
+            print(0)
+        }
     }
 }
-```
 
-### Higher-Order Function Pattern
-
-```xfawa
-#higher_order {
+#app {
     fn main() {
-        fn apply_operation(arr, operation_name) {
-            int result = 0
-            int i = 0
-            
-            if operation_name == "sum" {
-                while i < len(arr) {
-                    result = result + arr[i]
-                    i = i + 1
-                }
-            }
-            else if operation_name == "product" {
-                result = 1
-                while i < len(arr) {
-                    result = result * arr[i]
-                    i = i + 1
-                }
-            }
-            else if operation_name == "max" {
-                result = arr[0]
-                while i < len(arr) {
-                    if arr[i] > result {
-                        result = arr[i]
-                    }
-                    i = i + 1
-                }
-            }
-            
-            return result
-        }
+        print("=== Validator Demo ===")
         
-        int numbers = [1, 2, 3, 4, 5]
-        print("Sum: " + apply_operation(numbers, "sum"))
-        print("Product: " + apply_operation(numbers, "product"))
-        print("Max: " + apply_operation(numbers, "max"))
+        print("Is 5 positive?")
+        validator:check_positive(5)
+        
+        print("Is -3 positive?")
+        validator:check_positive(-3)
+        
+        print("Is 15 in range [10, 20]?")
+        validator:check_range(15, 10, 20)
+        
+        print("Is 25 in range [10, 20]?")
+        validator:check_range(25, 10, 20)
     }
 }
 ```
@@ -232,23 +172,13 @@ xfawaPL supports nested function definitions for local scope.
          * ========================================
          */
         
-        fn create_user(name, age) {
-            /*
-             * Create a new user
-             * Parameters:
-             *   name - User name
-             *   age - User age
-             * Returns:
-             *   User info string
-             */
-            return "User: " + name + ", Age: " + age
-        }
+        // Initialize user data
+        int user_count = 0
         
         // TODO: Add user validation
         // FIXME: Age range check needs optimization
         
-        string user = create_user("Alice", 25)
-        print(user)
+        print("User system initialized")
     }
 }
 ```
@@ -273,31 +203,25 @@ xfawaPL supports nested function definitions for local scope.
 }
 
 #data_handler {
-    fn main() {
-        fn pub:init() {
-            print("Initializing data...")
-        }
-        
-        fn pub:load_data() {
-            return [1, 2, 3, 4, 5]
-        }
+    fn init() {
+        print("Initializing data...")
+    }
+    
+    fn load_data() {
+        print("Loading data...")
     }
 }
 
 #business_logic {
-    fn main() {
-        fn pub:process() {
-            int data = data_handler:load_data()
-            print("Processing " + len(data) + " items")
-        }
+    fn process() {
+        data_handler:load_data()
+        print("Processing data...")
     }
 }
 
 #ui_renderer {
-    fn main() {
-        fn pub:display() {
-            print("Rendering UI...")
-        }
+    fn display() {
+        print("Rendering UI...")
     }
 }
 ```
@@ -310,7 +234,7 @@ xfawaPL supports nested function definitions for local scope.
         int state = 0
         int running = 1
         
-        while running == 1 {
+        while (running == 1) {
             if state == 0 {
                 print("State: IDLE")
                 state = 1
@@ -336,24 +260,35 @@ xfawaPL supports nested function definitions for local scope.
 
 ## Practical Design Patterns
 
-### Singleton Pattern Simulation
+### Counter Pattern
 
 ```xfawa
-#singleton_example {
-    fn main() {
-        fn pub:get_instance() {
-            return "GlobalInstance"
-        }
-        
-        fn pub:do_something() {
-            print("Singleton doing something")
-        }
+#counter {
+    fn increment(current) {
+        print(current + 1)
+    }
+    
+    fn decrement(current) {
+        print(current - 1)
+    }
+    
+    fn add(current, amount) {
+        print(current + amount)
     }
 }
 
 #app {
     fn main() {
-        singleton_example:do_something()
+        print("=== Counter Demo ===")
+        
+        print("Increment 5:")
+        counter:increment(5)
+        
+        print("Decrement 10:")
+        counter:decrement(10)
+        
+        print("Add 7 to 15:")
+        counter:add(15, 7)
     }
 }
 ```
@@ -362,111 +297,105 @@ xfawaPL supports nested function definitions for local scope.
 
 ```xfawa
 #factory {
-    fn main() {
-        fn pub:create(type) {
-            if type == "button" {
-                return "Button created"
-            }
-            else if type == "text" {
-                return "Text created"
-            }
-            else if type == "box" {
-                return "Box created"
-            }
-            return "Unknown type"
+    fn create_button() {
+        print("Button created")
+    }
+    
+    fn create_text() {
+        print("Text created")
+    }
+    
+    fn create_box() {
+        print("Box created")
+    }
+    
+    fn create(type_id) {
+        if type_id == 1 {
+            create_button()
+        }
+        else if type_id == 2 {
+            create_text()
+        }
+        else if type_id == 3 {
+            create_box()
+        }
+        else {
+            print("Unknown type")
         }
     }
 }
 
 #app {
     fn main() {
-        string btn = factory:create("button")
-        string txt = factory:create("text")
-        print(btn)
-        print(txt)
+        print("=== Factory Demo ===")
+        
+        factory:create(1)
+        factory:create(2)
+        factory:create(3)
     }
 }
 ```
 
 ---
 
-## Combined Example
+## Combined Examples
 
 ### Complete Application Structure
 
 ```xfawa
 #config {
-    fn main() {
-        fn pub:get_title() {
-            return "My Application"
-        }
-        
-        fn pub:get_width() {
-            return 400
-        }
-        
-        fn pub:get_height() {
-            return 300
-        }
+    fn get_title() {
+        print("My Application")
+    }
+    
+    fn get_width() {
+        print(400)
+    }
+    
+    fn get_height() {
+        print(300)
     }
 }
 
 #utils {
-    fn main() {
-        fn pub:format_number(n) {
-            return "Number: " + n
+    fn format_number(n) {
+        print("Number: ")
+        print(n)
+    }
+    
+    fn clamp(value, min, max) {
+        int result = value
+        if value < min {
+            result = min
         }
-        
-        fn pub:clamp(value, min, max) {
-            if value < min {
-                return min
-            }
-            if value > max {
-                return max
-            }
-            return value
+        else if value > max {
+            result = max
         }
+        print(result)
     }
 }
 
 #app {
     fn main() {
-        string title = config:get_title()
-        int width = config:get_width()
-        int height = config:get_height()
+        print("=== App Config ===")
         
-        window {
-            width: width
-            height: height
-            title: title
-            
-            text {
-                x: 100
-                y: 50
-                text: title
-            }
-            
-            box {
-                id: display
-                x: 50
-                y: 100
-                width: 300
-                height: 50
-                text: utils:format_number(42)
-            }
-            
-            button {
-                x: 50
-                y: 170
-                width: 300
-                height: 40
-                text: "Click Me"
-                
-                int val = rnd(1, 100)
-                int clamped = utils:clamp(val, 10, 90)
-                print(utils:format_number(clamped), display)
-            }
-        }
+        print("Title: ")
+        config:get_title()
+        
+        print("Width: ")
+        config:get_width()
+        
+        print("Height: ")
+        config:get_height()
+        
+        print("")
+        print("=== Utils Demo ===")
+        
+        print("Format 42:")
+        utils:format_number(42)
+        
+        print("Clamp 150 to [0, 100]:")
+        utils:clamp(150, 0, 100)
     }
 }
 ```

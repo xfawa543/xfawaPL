@@ -164,12 +164,21 @@ public:
     std::string accessType;
     std::unique_ptr<Expression> start;
     std::unique_ptr<Expression> end;
+    std::unique_ptr<Expression> array;
+    bool isSlice;
     
     ArrayRangeExpression(const std::string& access, std::unique_ptr<Expression> s, std::unique_ptr<Expression> e,
                           const SourceLocation& loc = SourceLocation())
-        : Expression(NodeType::ARRAY_RANGE_EXPRESSION, loc), accessType(access), start(std::move(s)), end(std::move(e)) {}
+        : Expression(NodeType::ARRAY_RANGE_EXPRESSION, loc), accessType(access), start(std::move(s)), end(std::move(e)), isSlice(false) {}
+    
+    ArrayRangeExpression(std::unique_ptr<Expression> arr, std::unique_ptr<Expression> s, std::unique_ptr<Expression> e,
+                          const SourceLocation& loc = SourceLocation())
+        : Expression(NodeType::ARRAY_RANGE_EXPRESSION, loc), start(std::move(s)), end(std::move(e)), array(std::move(arr)), isSlice(true) {}
     
     std::string toString() const override {
+        if (isSlice && array) {
+            return array->toString() + "[" + start->toString() + "..." + end->toString() + "]";
+        }
         return accessType + "[" + start->toString() + "..." + end->toString() + "]";
     }
 };

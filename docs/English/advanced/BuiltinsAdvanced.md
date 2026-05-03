@@ -1,46 +1,40 @@
-# Built-in Functions Advanced Usage
+# Builtins Advanced
 
-This document introduces advanced usage and combination techniques for built-in functions.
+This document introduces advanced usage and combined techniques of built-in functions.
 
 ---
 
-## print Advanced Usage
+## Advanced print Usage
 
 ### Formatted Output
 
 ```xfawa
 #formatted_output {
     fn main() {
-        string name = "xfawaPL"
-        int version = 1
-        int subversion = 0
-        
-        print("Language: " + name)
-        print("Version: " + version + "." + subversion)
+        print("Language: xfawaPL")
+        print("Version: 1.0")
         
         int score = 95
-        print("Score: " + score + " points")
-        print("Grade: " + getGrade(score))
-    }
-    
-    fn getGrade(score) {
+        print("Score:")
+        print(score)
+        
         if score >= 90 {
-            return "A"
+            print("Grade: A")
         }
         else if score >= 80 {
-            return "B"
+            print("Grade: B")
         }
         else if score >= 60 {
-            return "C"
+            print("Grade: C")
         }
         else {
-            return "D"
+            print("Grade: D")
         }
     }
 }
 ```
 
-### Multi-Component Output
+### Multi-component Output
 
 ```xfawa
 #multi_component {
@@ -76,7 +70,8 @@ This document introduces advanced usage and combination techniques for built-in 
                 text: "Output to Log1"
                 
                 int num = rnd(1, 100)
-                print("Random: " + num, log1)
+                print("Random:", log1)
+                print(num, log1)
             }
             
             button {
@@ -87,7 +82,8 @@ This document introduces advanced usage and combination techniques for built-in 
                 text: "Output to Log2"
                 
                 int num = rnd(1, 100)
-                print("Random: " + num, log2)
+                print("Random:", log2)
+                print(num, log2)
             }
             
             button {
@@ -98,8 +94,10 @@ This document introduces advanced usage and combination techniques for built-in 
                 text: "Output to Both"
                 
                 int num = rnd(1, 100)
-                print("Same: " + num, log1)
-                print("Same: " + num, log2)
+                print("Same:", log1)
+                print(num, log1)
+                print("Same:", log2)
+                print(num, log2)
             }
         }
     }
@@ -108,7 +106,7 @@ This document introduces advanced usage and combination techniques for built-in 
 
 ---
 
-## rnd Advanced Usage
+## Advanced rnd Usage
 
 ### Probability System
 
@@ -204,26 +202,22 @@ This document introduces advanced usage and combination techniques for built-in 
                 x: 100
                 y: 180
                 width: 200
-                height: 50
-                text: "Trigger Event"
+                height: 40
+                text: "Random Event"
                 
-                int events = [1, 2, 3, 4, 5]
-                int eventType = rnd(events)
+                int eventType = rnd(1, 4)
                 
                 if eventType == 1 {
-                    print("Gold dropped!", event)
+                    print("Event: Treasure found!", event)
                 }
                 else if eventType == 2 {
-                    print("Monster appeared!", event)
+                    print("Event: Enemy appeared!", event)
                 }
                 else if eventType == 3 {
-                    print("Found treasure!", event)
-                }
-                else if eventType == 4 {
-                    print("Gained experience!", event)
+                    print("Event: Nothing happened", event)
                 }
                 else {
-                    print("Nothing happened", event)
+                    print("Event: Lucky bonus!", event)
                 }
             }
         }
@@ -233,299 +227,60 @@ This document introduces advanced usage and combination techniques for built-in 
 
 ---
 
-## Combined Applications
+## Random Array Selection
 
-### Dice Game
+### Select from Array
 
 ```xfawa
-#dice_game {
+#random_array {
     fn main() {
-        int playerScore = 0
-        int computerScore = 0
+        int options = [1, 2, 3, 4, 5]
         
+        print("Random selection from array:")
+        print(rnd(options))
+        
+        print("Random from range [1, 100]:")
+        print(rnd(1, 100))
+    }
+}
+```
+
+### Random Color Generation
+
+```xfawa
+#random_color {
+    fn main() {
         window {
             width: 400
-            height: 400
-            title: "Dice Game"
-            color: lightblue
-            
-            text {
-                x: 150
-                y: 10
-                width: 100
-                height: 30
-                text: "Dice Game"
-            }
+            height: 300
+            title: "Random Color"
             
             box {
-                id: playerDice
-                x: 50
-                y: 50
-                width: 100
-                height: 50
-                text: "Player: 0"
-            }
-            
-            box {
-                id: computerDice
-                x: 250
-                y: 50
-                width: 100
-                height: 50
-                text: "Computer: 0"
-            }
-            
-            box {
-                id: result
+                id: colorBox
                 x: 100
-                y: 120
+                y: 50
                 width: 200
-                height: 40
-                text: "Roll to start!"
+                height: 100
+                text: "Color Box"
             }
             
-            box {
-                id: score
+            button {
                 x: 100
                 y: 180
                 width: 200
                 height: 40
-                text: "Score: 0 - 0"
-            }
-            
-            button {
-                x: 100
-                y: 250
-                width: 200
-                height: 50
-                text: "Roll Dice"
+                text: "Random Color"
                 
-                int playerRoll = rnd(1, 6)
-                int computerRoll = rnd(1, 6)
+                int r = rnd(0, 255)
+                int g = rnd(0, 255)
+                int b = rnd(0, 255)
                 
-                print("Player: " + playerRoll, playerDice)
-                print("Computer: " + computerRoll, computerDice)
-                
-                if playerRoll > computerRoll {
-                    print("You win!", result)
-                }
-                else if playerRoll < computerRoll {
-                    print("Computer wins!", result)
-                }
-                else {
-                    print("Tie!", result)
-                }
-            }
-        }
-    }
-}
-```
-
-### Lottery System
-
-```xfawa
-#lottery {
-    fn main() {
-        window {
-            width: 400
-            height: 400
-            title: "Lottery"
-            color: yellow
-            
-            text {
-                x: 150
-                y: 20
-                width: 100
-                height: 30
-                text: "Lottery"
-            }
-            
-            box {
-                id: prize
-                x: 100
-                y: 70
-                width: 200
-                height: 60
-                text: "Click to draw!"
-            }
-            
-            box {
-                id: history
-                x: 50
-                y: 150
-                width: 300
-                height: 150
-                text: "History:"
-            }
-            
-            button {
-                x: 100
-                y: 320
-                width: 200
-                height: 40
-                text: "Draw Prize"
-                
-                int prizes = [1, 2, 3, 4, 5, 6]
-                int result = rnd(prizes)
-                
-                if result == 1 {
-                    print("First Prize!", prize)
-                }
-                else if result == 2 {
-                    print("Second Prize!", prize)
-                }
-                else if result == 3 {
-                    print("Third Prize!", prize)
-                }
-                else {
-                    print("Thanks for playing!", prize)
-                }
-                
-                print(result, history)
-            }
-        }
-    }
-}
-```
-
-### Guess Number Game
-
-```xfawa
-#guess_number {
-    fn main() {
-        int target = rnd(1, 100)
-        int attempts = 0
-        
-        window {
-            width: 400
-            height: 350
-            title: "Guess Number"
-            
-            text {
-                x: 100
-                y: 20
-                width: 200
-                height: 30
-                text: "Guess 1-100"
-            }
-            
-            box {
-                id: message
-                x: 100
-                y: 60
-                width: 200
-                height: 40
-                text: "Make a guess!"
-            }
-            
-            box {
-                id: attempts_box
-                x: 100
-                y: 110
-                width: 200
-                height: 30
-                text: "Attempts: 0"
-            }
-            
-            button {
-                x: 50
-                y: 160
-                width: 100
-                height: 40
-                text: "Guess 1-25"
-                
-                int guess = rnd(1, 25)
-                attempts = attempts + 1
-                print("Attempts: " + attempts, attempts_box)
-                
-                if guess == target {
-                    print("Correct! Answer: " + target, message)
-                }
-                else if guess < target {
-                    print("Too low! Guess: " + guess, message)
-                }
-                else {
-                    print("Too high! Guess: " + guess, message)
-                }
-            }
-            
-            button {
-                x: 150
-                y: 160
-                width: 100
-                height: 40
-                text: "Guess 26-50"
-                
-                int guess = rnd(26, 50)
-                attempts = attempts + 1
-                print("Attempts: " + attempts, attempts_box)
-                
-                if guess == target {
-                    print("Correct! Answer: " + target, message)
-                }
-                else if guess < target {
-                    print("Too low! Guess: " + guess, message)
-                }
-                else {
-                    print("Too high! Guess: " + guess, message)
-                }
-            }
-            
-            button {
-                x: 250
-                y: 160
-                width: 100
-                height: 40
-                text: "Guess 51-75"
-                
-                int guess = rnd(51, 75)
-                attempts = attempts + 1
-                print("Attempts: " + attempts, attempts_box)
-                
-                if guess == target {
-                    print("Correct! Answer: " + target, message)
-                }
-                else if guess < target {
-                    print("Too low! Guess: " + guess, message)
-                }
-                else {
-                    print("Too high! Guess: " + guess, message)
-                }
-            }
-            
-            button {
-                x: 150
-                y: 220
-                width: 100
-                height: 40
-                text: "Guess 76-100"
-                
-                int guess = rnd(76, 100)
-                attempts = attempts + 1
-                print("Attempts: " + attempts, attempts_box)
-                
-                if guess == target {
-                    print("Correct! Answer: " + target, message)
-                }
-                else if guess < target {
-                    print("Too low! Guess: " + guess, message)
-                }
-                else {
-                    print("Too high! Guess: " + guess, message)
-                }
-            }
-            
-            button {
-                x: 150
-                y: 280
-                width: 100
-                height: 40
-                text: "New Game"
-                
-                target = rnd(1, 100)
-                attempts = 0
-                print("New game started!", message)
-                print("Attempts: 0", attempts_box)
+                print("R:", colorBox)
+                print(r, colorBox)
+                print("G:", colorBox)
+                print(g, colorBox)
+                print("B:", colorBox)
+                print(b, colorBox)
             }
         }
     }
@@ -534,8 +289,147 @@ This document introduces advanced usage and combination techniques for built-in 
 
 ---
 
-## Related Documents
+## Combined Examples
 
-- [Built-in Functions Basics](../Builtins.md)
-- [Window System Advanced Usage](./WindowSystemAdvanced.md)
-- [Control Flow Advanced Usage](./ControlFlowAdvanced.md)
+### Number Guessing Game
+
+```xfawa
+#number_game {
+    fn main() {
+        window {
+            width: 400
+            height: 350
+            title: "Number Guessing Game"
+            
+            box {
+                id: hint
+                x: 50
+                y: 50
+                width: 300
+                height: 50
+                text: "Guess a number 1-100"
+            }
+            
+            box {
+                id: result
+                x: 50
+                y: 120
+                width: 300
+                height: 50
+                text: "Result"
+            }
+            
+            button {
+                x: 50
+                y: 200
+                width: 100
+                height: 40
+                text: "Guess 1-33"
+                
+                int target = rnd(1, 100)
+                int guess = rnd(1, 33)
+                
+                print("Target:", result)
+                print(target, result)
+                print("Your guess:", result)
+                print(guess, result)
+                
+                if guess == target {
+                    print("Correct!", hint)
+                }
+                else {
+                    print("Wrong!", hint)
+                }
+            }
+            
+            button {
+                x: 150
+                y: 200
+                width: 100
+                height: 40
+                text: "Guess 34-66"
+                
+                int target = rnd(1, 100)
+                int guess = rnd(34, 66)
+                
+                print("Target:", result)
+                print(target, result)
+                print("Your guess:", result)
+                print(guess, result)
+                
+                if guess == target {
+                    print("Correct!", hint)
+                }
+                else {
+                    print("Wrong!", hint)
+                }
+            }
+            
+            button {
+                x: 250
+                y: 200
+                width: 100
+                height: 40
+                text: "Guess 67-100"
+                
+                int target = rnd(1, 100)
+                int guess = rnd(67, 100)
+                
+                print("Target:", result)
+                print(target, result)
+                print("Your guess:", result)
+                print(guess, result)
+                
+                if guess == target {
+                    print("Correct!", hint)
+                }
+                else {
+                    print("Wrong!", hint)
+                }
+            }
+        }
+    }
+}
+```
+
+### Dice Simulator
+
+```xfawa
+#dice_simulator {
+    fn main() {
+        window {
+            width: 400
+            height: 300
+            title: "Dice Simulator"
+            
+            box {
+                id: dice
+                x: 150
+                y: 50
+                width: 100
+                height: 100
+                text: "Roll!"
+            }
+            
+            button {
+                x: 100
+                y: 180
+                width: 200
+                height: 40
+                text: "Roll Dice"
+                
+                int result = rnd(1, 6)
+                print(result, dice)
+            }
+        }
+    }
+}
+```
+
+---
+
+## Related Documentation
+
+- [Builtins](../Builtins.md)
+- [Window System Advanced](./WindowSystemAdvanced.md)
+- [Control Flow Advanced](./ControlFlowAdvanced.md)

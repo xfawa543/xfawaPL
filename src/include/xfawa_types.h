@@ -55,11 +55,15 @@ enum class NodeType {
 enum class VarType {
     UNKNOWN,
     INT,
+    LONG,
     FLOAT,
     BOOL,
+    STRING,
     ARRAY_INT,
+    ARRAY_LONG,
     ARRAY_FLOAT,
-    ARRAY_BOOL
+    ARRAY_BOOL,
+    ARRAY_STRING
 };
 
 std::string varTypeToString(VarType type);
@@ -125,6 +129,7 @@ enum class TokenType {
     
     IDENTIFIER,
     NUMBER_LITERAL,
+    LONG_LITERAL,
     STRING_LITERAL,
     FLOAT_LITERAL,
     
@@ -140,8 +145,10 @@ enum class TokenType {
     KEYWORD_IMPORT,
     KEYWORD_PERCENT_IMPORT,
     KEYWORD_INT,
+    KEYWORD_LONG,
     KEYWORD_FLOAT,
     KEYWORD_BOOL,
+    KEYWORD_STRING,
     KEYWORD_FOR,
     KEYWORD_WINDOW,
     

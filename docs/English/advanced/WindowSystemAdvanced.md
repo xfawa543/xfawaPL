@@ -1,10 +1,10 @@
-# Window System Advanced Usage
+# Window System Advanced
 
-This document introduces advanced usage and combination techniques for the window system.
+This document introduces advanced usage and combined techniques of the window system.
 
 ---
 
-## Complex Interface Layouts
+## Complex Interface Layout
 
 ### Calculator Application
 
@@ -201,453 +201,127 @@ This document introduces advanced usage and combination techniques for the windo
 
 ---
 
-## Multi-Component Interaction
+## Interactive Components
 
-### Log Viewer
-
-```xfawa
-#log_viewer {
-    fn main() {
-        window {
-            width: 500
-            height: 400
-            title: "Log Viewer"
-            
-            text {
-                x: 200
-                y: 10
-                width: 100
-                height: 30
-                text: "Log Viewer"
-            }
-            
-            box {
-                id: logbox
-                x: 20
-                y: 50
-                width: 460
-                height: 280
-                text: "Logs will appear here..."
-            }
-            
-            button {
-                x: 50
-                y: 350
-                width: 120
-                height: 35
-                text: "Add Log"
-                
-                int timestamp = rnd(1000, 9999)
-                print("[" + timestamp + "] Log entry", logbox)
-            }
-            
-            button {
-                x: 200
-                y: 350
-                width: 100
-                height: 35
-                text: "Clear"
-                
-                print("Logs cleared.", logbox)
-            }
-            
-            button {
-                x: 330
-                y: 350
-                width: 120
-                height: 35
-                text: "Random"
-                
-                int values = [10, 20, 30, 40, 50]
-                int val = rnd(values)
-                print("Random: " + val, logbox)
-            }
-        }
-    }
-}
-```
-
-### Multi-Panel Interface
+### Simple Form
 
 ```xfawa
-#multi_panel {
+#simple_form {
     fn main() {
-        window {
-            width: 600
-            height: 400
-            title: "Multi Panel"
-            
-            text {
-                x: 250
-                y: 10
-                width: 100
-                height: 30
-                text: "Dashboard"
-            }
-            
-            box {
-                id: panel1
-                x: 20
-                y: 50
-                width: 180
-                height: 200
-                text: "Panel 1"
-            }
-            
-            box {
-                id: panel2
-                x: 210
-                y: 50
-                width: 180
-                height: 200
-                text: "Panel 2"
-            }
-            
-            box {
-                id: panel3
-                x: 400
-                y: 50
-                width: 180
-                height: 200
-                text: "Panel 3"
-            }
-            
-            button {
-                x: 50
-                y: 270
-                width: 120
-                height: 40
-                text: "Update P1"
-                
-                int val = rnd(1, 100)
-                print("P1: " + val, panel1)
-            }
-            
-            button {
-                x: 240
-                y: 270
-                width: 120
-                height: 40
-                text: "Update P2"
-                
-                int val = rnd(1, 100)
-                print("P2: " + val, panel2)
-            }
-            
-            button {
-                x: 430
-                y: 270
-                width: 120
-                height: 40
-                text: "Update P3"
-                
-                int val = rnd(1, 100)
-                print("P3: " + val, panel3)
-            }
-            
-            button {
-                x: 200
-                y: 330
-                width: 200
-                height: 40
-                text: "Update All"
-                
-                int v1 = rnd(1, 100)
-                int v2 = rnd(1, 100)
-                int v3 = rnd(1, 100)
-                print("All: " + v1, panel1)
-                print("All: " + v2, panel2)
-                print("All: " + v3, panel3)
-            }
-        }
-    }
-}
-```
-
----
-
-## Game Interfaces
-
-### Simple RPG Interface
-
-```xfawa
-#rpg_interface {
-    fn main() {
-        int hp = 100
-        int mp = 50
-        int gold = 0
-        
-        window {
-            width: 500
-            height: 450
-            title: "Simple RPG"
-            color: lightblue
-            
-            text {
-                x: 200
-                y: 10
-                width: 100
-                height: 30
-                text: "Simple RPG"
-            }
-            
-            box {
-                id: hp_display
-                x: 50
-                y: 50
-                width: 100
-                height: 40
-                text: "HP: 100"
-            }
-            
-            box {
-                id: mp_display
-                x: 160
-                y: 50
-                width: 100
-                height: 40
-                text: "MP: 50"
-            }
-            
-            box {
-                id: gold_display
-                x: 270
-                y: 50
-                width: 100
-                height: 40
-                text: "Gold: 0"
-            }
-            
-            box {
-                id: message
-                x: 50
-                y: 100
-                width: 400
-                height: 80
-                text: "Welcome to the game!"
-            }
-            
-            box {
-                id: log
-                x: 50
-                y: 190
-                width: 400
-                height: 120
-                text: "Game Log:"
-            }
-            
-            button {
-                x: 50
-                y: 330
-                width: 120
-                height: 40
-                text: "Explore"
-                
-                int event = rnd(1, 4)
-                if event == 1 {
-                    int found = rnd(5, 20)
-                    print("Found " + found + " gold!", message)
-                    print("Gold +" + found, log)
-                }
-                else if event == 2 {
-                    int damage = rnd(5, 15)
-                    print("Encountered enemy! -" + damage + " HP", message)
-                    print("Battle -" + damage + " HP", log)
-                }
-                else if event == 3 {
-                    int heal = rnd(10, 25)
-                    print("Found healing potion! +" + heal + " HP", message)
-                    print("Healed +" + heal + " HP", log)
-                }
-                else {
-                    print("Nothing happened...", message)
-                    print("Empty area", log)
-                }
-            }
-            
-            button {
-                x: 190
-                y: 330
-                width: 120
-                height: 40
-                text: "Rest"
-                
-                print("You rest and recover.", message)
-                print("Rested", log)
-            }
-            
-            button {
-                x: 330
-                y: 330
-                width: 120
-                height: 40
-                text: "Shop"
-                
-                print("Welcome to the shop!", message)
-                print("Visited shop", log)
-            }
-        }
-    }
-}
-```
-
-### Reaction Speed Test
-
-```xfawa
-#reaction_test {
-    fn main() {
-        int score = 0
-        int round = 0
-        
         window {
             width: 400
             height: 350
-            title: "Reaction Test"
+            title: "Simple Form"
             
             text {
                 x: 150
                 y: 20
                 width: 100
                 height: 30
-                text: "Reaction Test"
+                text: "User Form"
             }
             
             box {
-                id: target
-                x: 150
-                y: 70
-                width: 100
-                height: 100
-                text: "Wait..."
-            }
-            
-            box {
-                id: score_display
+                id: name_display
                 x: 100
-                y: 190
+                y: 70
                 width: 200
                 height: 40
-                text: "Score: 0"
+                text: "Name"
+            }
+            
+            box {
+                id: age_display
+                x: 100
+                y: 130
+                width: 200
+                height: 40
+                text: "Age"
+            }
+            
+            button {
+                x: 50
+                y: 200
+                width: 100
+                height: 40
+                text: "Set Name"
+                
+                print("John", name_display)
+            }
+            
+            button {
+                x: 250
+                y: 200
+                width: 100
+                height: 40
+                text: "Set Age"
+                
+                print("25", age_display)
             }
             
             button {
                 x: 100
-                y: 250
+                y: 270
                 width: 200
-                height: 50
-                text: "Click When GO!"
+                height: 40
+                text: "Random Age"
                 
-                int reaction = rnd(1, 3)
-                if reaction == 1 {
-                    print("GO!", target)
-                    score = score + 1
-                    print("Score: " + score, score_display)
-                }
-                else {
-                    print("Too early!", target)
-                }
-            }
-            
-            button {
-                x: 150
-                y: 310
-                width: 100
-                height: 30
-                text: "Reset"
-                
-                score = 0
-                print("Wait...", target)
-                print("Score: 0", score_display)
+                int age = rnd(18, 65)
+                print(age, age_display)
             }
         }
     }
 }
 ```
 
----
-
-## Data Visualization
-
-### Simple Chart
+### Multi-page Layout
 
 ```xfawa
-#simple_chart {
+#multi_page {
     fn main() {
         window {
             width: 500
             height: 400
-            title: "Simple Chart"
-            
-            text {
-                x: 200
-                y: 10
-                width: 100
-                height: 30
-                text: "Data Chart"
-            }
+            title: "Multi Page"
             
             box {
-                id: data1
+                id: page1
                 x: 50
                 y: 50
-                width: 80
-                height: 200
-                text: ""
+                width: 400
+                height: 250
+                text: "Page 1 Content"
             }
             
             box {
-                id: data2
-                x: 140
-                y: 50
-                width: 80
-                height: 200
-                text: ""
-            }
-            
-            box {
-                id: data3
-                x: 230
-                y: 50
-                width: 80
-                height: 200
-                text: ""
-            }
-            
-            box {
-                id: data4
-                x: 320
-                y: 50
-                width: 80
-                height: 200
-                text: ""
-            }
-            
-            box {
-                id: values
+                id: page2
                 x: 50
-                y: 260
-                width: 350
-                height: 60
-                text: "Values: -"
+                y: 50
+                width: 400
+                height: 250
+                text: "Page 2 Content"
             }
             
             button {
-                x: 150
-                y: 340
-                width: 200
+                x: 100
+                y: 320
+                width: 100
                 height: 40
-                text: "Generate Data"
+                text: "Page 1"
                 
-                int v1 = rnd(10, 100)
-                int v2 = rnd(10, 100)
-                int v3 = rnd(10, 100)
-                int v4 = rnd(10, 100)
+                print("Page 1 Active", page1)
+                print("Page 2 Inactive", page2)
+            }
+            
+            button {
+                x: 300
+                y: 320
+                width: 100
+                height: 40
+                text: "Page 2"
                 
-                print(v1, data1)
-                print(v2, data2)
-                print(v3, data3)
-                print(v4, data4)
-                print("Values: " + v1 + ", " + v2 + ", " + v3 + ", " + v4, values)
+                print("Page 1 Inactive", page1)
+                print("Page 2 Active", page2)
             }
         }
     }
@@ -656,8 +330,148 @@ This document introduces advanced usage and combination techniques for the windo
 
 ---
 
-## Related Documents
+## Game Interface Examples
 
-- [Window System Basics](../WindowSystem.md)
-- [Built-in Functions Advanced Usage](./BuiltinsAdvanced.md)
-- [Control Flow Advanced Usage](./ControlFlowAdvanced.md)
+### Number Guessing Game
+
+```xfawa
+#guess_game {
+    fn main() {
+        window {
+            width: 400
+            height: 350
+            title: "Guess Game"
+            
+            text {
+                x: 100
+                y: 20
+                width: 200
+                height: 30
+                text: "Guess 1-100"
+            }
+            
+            box {
+                id: result
+                x: 100
+                y: 70
+                width: 200
+                height: 50
+                text: "Click to guess"
+            }
+            
+            button {
+                x: 50
+                y: 150
+                width: 100
+                height: 50
+                text: "Low (1-33)"
+                
+                int num = rnd(1, 33)
+                print(num, result)
+            }
+            
+            button {
+                x: 150
+                y: 150
+                width: 100
+                height: 50
+                text: "Mid (34-66)"
+                
+                int num = rnd(34, 66)
+                print(num, result)
+            }
+            
+            button {
+                x: 250
+                y: 150
+                width: 100
+                height: 50
+                text: "High (67-100)"
+                
+                int num = rnd(67, 100)
+                print(num, result)
+            }
+            
+            button {
+                x: 100
+                y: 230
+                width: 200
+                height: 50
+                text: "Random Pick"
+                
+                int num = rnd(1, 100)
+                print(num, result)
+            }
+        }
+    }
+}
+```
+
+### Simple Quiz
+
+```xfawa
+#simple_quiz {
+    fn main() {
+        window {
+            width: 400
+            height: 400
+            title: "Quiz"
+            
+            text {
+                x: 100
+                y: 20
+                width: 200
+                height: 30
+                text: "What is 5 + 3?"
+            }
+            
+            box {
+                id: feedback
+                x: 100
+                y: 280
+                width: 200
+                height: 50
+                text: "Answer"
+            }
+            
+            button {
+                x: 100
+                y: 80
+                width: 200
+                height: 50
+                text: "5"
+                
+                print("Wrong! Try again", feedback)
+            }
+            
+            button {
+                x: 100
+                y: 140
+                width: 200
+                height: 50
+                text: "8"
+                
+                print("Correct!", feedback)
+            }
+            
+            button {
+                x: 100
+                y: 200
+                width: 200
+                height: 50
+                text: "10"
+                
+                print("Wrong! Try again", feedback)
+            }
+        }
+    }
+}
+```
+
+---
+
+## Related Documentation
+
+- [Window System](../WindowSystem.md)
+- [Builtins Advanced](./BuiltinsAdvanced.md)
+- [Control Flow Advanced](./ControlFlowAdvanced.md)

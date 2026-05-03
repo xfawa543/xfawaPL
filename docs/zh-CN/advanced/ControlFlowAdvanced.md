@@ -12,17 +12,21 @@
 #complex_conditions {
     fn main() {
         int age = 25
-        bool hasLicense = true
-        bool hasInsurance = true
+        int hasLicense = 1
+        int hasInsurance = 1
         
-        if age >= 18 && hasLicense && hasInsurance {
-            print("可以合法驾驶")
-        }
-        else if age >= 18 && hasLicense {
-            print("可以驾驶，但需要购买保险")
-        }
-        else if age >= 18 {
-            print("需要考取驾照")
+        if age >= 18 {
+            if hasLicense == 1 {
+                if hasInsurance == 1 {
+                    print("可以合法驾驶")
+                }
+                else {
+                    print("可以驾驶，但需要购买保险")
+                }
+            }
+            else {
+                print("需要考取驾照")
+            }
         }
         else {
             print("未成年，不能驾驶")
@@ -39,7 +43,6 @@
         int score = 85
         int attendance = 90
         
-        // 嵌套条件
         if score >= 60 {
             if attendance >= 80 {
                 print("成绩合格，出勤良好")
@@ -92,7 +95,7 @@
             i = i + 1
         }
         
-        print(n + "的阶乘是:")
+        print("5的阶乘是:")
         print(result)
     }
 }
@@ -105,19 +108,19 @@
     fn main() {
         int numbers = [10, 20, 30, 40, 50]
         int sum = 0
-        int max = numbers[0]
+        int max_val = numbers[0]
         
         for num in numbers {
             sum = sum + num
-            if num > max {
-                max = num
+            if num > max_val {
+                max_val = num
             }
         }
         
         print("总和:")
         print(sum)
         print("最大值:")
-        print(max)
+        print(max_val)
         print("平均值:")
         print(sum / 5)
     }
@@ -135,17 +138,18 @@
     fn main() {
         int arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         int target = 7
-        bool found = false
+        int found = 0
         
         for num in arr {
             if num == target {
-                found = true
+                found = 1
                 break
             }
         }
         
-        if found {
-            print("找到了目标: " + target)
+        if found == 1 {
+            print("找到了目标:")
+            print(target)
         }
         else {
             print("未找到目标")
@@ -154,22 +158,33 @@
 }
 ```
 
-### 提前返回
+### 查找第一个匹配
 
 ```xfawa
-#early_return {
+#find_first {
     fn main() {
-        int result = findFirst([5, 3, 8, 1, 9], 8)
-        print(result)
-    }
-    
-    fn findFirst(arr, target) {
+        int arr = [5, 3, 8, 1, 9]
+        int target = 8
+        int found = 0
+        int index = 0
+        int i = 0
+        
         for num in arr {
             if num == target {
-                return num
+                found = 1
+                index = i
+                break
             }
+            i = i + 1
         }
-        return -1
+        
+        if found == 1 {
+            print("Found at index:")
+            print(index)
+        }
+        else {
+            print("Not found")
+        }
     }
 }
 ```
@@ -206,7 +221,7 @@
         int b = 1
         int count = 0
         
-        print("斐波那契数列前" + n + "项:")
+        print("斐波那契数列前10项:")
         while (count < n) {
             print(a)
             int temp = a + b
@@ -223,88 +238,86 @@
 ```xfawa
 #prime_check {
     fn main() {
-        int num = 17
-        if isPrime(num) {
-            print(num + "是素数")
-        }
-        else {
-            print(num + "不是素数")
-        }
-    }
-    
-    fn isPrime(n) {
-        if n < 2 {
-            return false
-        }
+        int n = 17
+        int is_prime = 1
         int i = 2
-        while (i * i <= n) {
+        
+        while (i < n) {
             if n % i == 0 {
-                return false
+                is_prime = 0
+                break
             }
             i = i + 1
         }
-        return true
-    }
-}
-```
-
-### 二分查找
-
-```xfawa
-#binary_search {
-    fn main() {
-        int arr = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
-        int target = 11
-        int result = binarySearch(arr, target)
         
-        if result != -1 {
-            print("找到目标，索引: " + result)
+        if is_prime == 1 {
+            print("是素数")
         }
         else {
-            print("未找到目标")
+            print("不是素数")
         }
-    }
-    
-    fn binarySearch(arr, target) {
-        int left = 0
-        int right = 9
-        
-        while (left <= right) {
-            int mid = (left + right) / 2
-            if arr[mid] == target {
-                return mid
-            }
-            else if arr[mid] < target {
-                left = mid + 1
-            }
-            else {
-                right = mid - 1
-            }
-        }
-        return -1
     }
 }
 ```
 
-### 冒泡排序
+---
+
+## 嵌套循环模式
+
+### 二维模式输出
+
+```xfawa
+#pattern_output {
+    fn main() {
+        int rows = 5
+        int i = 1
+        
+        while (i <= rows) {
+            int j = 1
+            while (j <= i) {
+                print(j)
+                j = j + 1
+            }
+            i = i + 1
+        }
+    }
+}
+```
+
+### 矩阵遍历模拟
+
+```xfawa
+#matrix_traversal {
+    fn main() {
+        int rows = 3
+        int cols = 4
+        int i = 0
+        
+        while (i < rows) {
+            int j = 0
+            while (j < cols) {
+                print(i * cols + j)
+                j = j + 1
+            }
+            i = i + 1
+        }
+    }
+}
+```
+
+---
+
+## 组合示例
+
+### 数字排序（冒泡）
 
 ```xfawa
 #bubble_sort {
     fn main() {
         int arr = [64, 34, 25, 12, 22, 11, 90]
-        
-        print("排序前:")
-        printArray(arr)
-        
-        bubbleSort(arr)
-        
-        print("排序后:")
-        printArray(arr)
-    }
-    
-    fn bubbleSort(arr) {
         int n = 7
         int i = 0
+        
         while (i < n - 1) {
             int j = 0
             while (j < n - i - 1) {
@@ -317,88 +330,46 @@
             }
             i = i + 1
         }
-    }
-    
-    fn printArray(arr) {
-        for item in arr {
-            print(item)
-        }
-    }
-}
-```
-
----
-
-## 函数组合模式
-
-### 计算器函数库
-
-```xfawa
-#calculator_functions {
-    fn main() {
-        int a = 10
-        int b = 3
         
-        print("加法: " + add(a, b))
-        print("减法: " + subtract(a, b))
-        print("乘法: " + multiply(a, b))
-        print("除法: " + divide(a, b))
-        print("取模: " + modulo(a, b))
-        print("幂运算: " + power(a, b))
-    }
-    
-    fn add(x, y) {
-        return x + y
-    }
-    
-    fn subtract(x, y) {
-        return x - y
-    }
-    
-    fn multiply(x, y) {
-        return x * y
-    }
-    
-    fn divide(x, y) {
-        return x / y
-    }
-    
-    fn modulo(x, y) {
-        return x % y
-    }
-    
-    fn power(base, exp) {
-        int result = 1
-        int i = 0
-        while (i < exp) {
-            result = result * base
-            i = i + 1
+        print("Sorted array:")
+        for num in arr {
+            print(num)
         }
-        return result
     }
 }
 ```
 
-### 递归模式（模拟）
+### 二分查找
 
 ```xfawa
-#recursion_simulation {
+#binary_search {
     fn main() {
-        int n = 5
-        print(n + "的阶乘: " + factorial(n))
-    }
-    
-    fn factorial(n) {
-        if n <= 1 {
-            return 1
+        int arr = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19]
+        int target = 11
+        int left = 0
+        int right = 9
+        int found = 0
+        
+        while (left <= right) {
+            int mid = (left + right) / 2
+            
+            if arr[mid] == target {
+                found = 1
+                print("Found at index:")
+                print(mid)
+                break
+            }
+            else if arr[mid] < target {
+                left = mid + 1
+            }
+            else {
+                right = mid - 1
+            }
         }
-        int result = 1
-        int i = 2
-        while (i <= n) {
-            result = result * i
-            i = i + 1
+        
+        if found == 0 {
+            print("Not found")
         }
-        return result
     }
 }
 ```
@@ -407,6 +378,6 @@
 
 ## 相关文档
 
-- [控制流基础](../ControlFlow.md)
-- [运算符](../Operators.md)
-- [内置函数](../Builtins.md)
+- [控制流](../ControlFlow.md)
+- [运算符高阶用法](./OperatorsAdvanced.md)
+- [数据类型高阶用法](./DataTypesAdvanced.md)

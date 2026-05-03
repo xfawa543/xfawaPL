@@ -9,8 +9,10 @@ This document introduces the data types supported by xfawaPL.
 | Type | Keyword | Description | Example |
 |------|---------|-------------|---------|
 | Integer | `int` | 32-bit signed integer | `int a = 42` |
-| Float | `float` | Single-precision floating point | `float b = 3.14` |
-| Boolean | `bool` | Boolean type | `bool c = true` |
+| Long Integer | `long` | 64-bit signed integer | `long b = 3000000000` |
+| Float | `float` | Single-precision floating point | `float c = 3.14` |
+| Boolean | `bool` | Boolean type | `bool d = true` |
+| String | `string` | String type | `string s = "Hello"` |
 
 ---
 
@@ -20,8 +22,10 @@ This document introduces the data types supported by xfawaPL.
 
 ```xfawa
 int a = 1
-float b = 3.14
-bool c = true
+long b = 3000000000
+float c = 3.14
+bool d = true
+string s = "Hello, xfawaPL!"
 ```
 
 ### Implicit Type Declaration
@@ -39,13 +43,16 @@ a = 1          // Will produce a compiler warning, explicit type declaration rec
 ```xfawa
 int num = 42
 int max = 2147483647        // Maximum integer value
+long bigNum = 3000000000    // Integer exceeding 32-bit uses long
+long maxLong = 9223372036854775807  // Maximum long value
 float pi = 3.14159
 float scientific = 1.5e10   // Scientific notation
 ```
 
 ### Integer Range
 
-- Valid range for integer literals: `0` to `2147483647`
+- Integer (int) literal valid range: `-2147483648` to `2147483647`
+- Long integer (long) literal valid range: `-9223372036854775808` to `9223372036854775807`
 - Negative numbers are achieved through unary minus: `int neg = -42`
 
 ### Boolean Literals
@@ -62,6 +69,17 @@ string text = "Hello, xfawaPL!"
 string empty = ""
 string multiline = "Line1\nLine2"    // Supports escape characters
 ```
+
+#### Escape Characters
+
+| Escape Sequence | Description |
+|-----------------|-------------|
+| `\n` | Newline |
+| `\t` | Tab |
+| `\r` | Carriage return |
+| `\\` | Backslash |
+| `\"` | Double quote |
+| `\0` | Null character |
 
 ---
 

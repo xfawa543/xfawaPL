@@ -21,8 +21,10 @@ const std::vector<std::pair<std::string, TokenType>> Lexer::keywords = {
     {"import", TokenType::KEYWORD_IMPORT},
     {"%import", TokenType::KEYWORD_PERCENT_IMPORT},
     {"int", TokenType::KEYWORD_INT},
+    {"long", TokenType::KEYWORD_LONG},
     {"float", TokenType::KEYWORD_FLOAT},
     {"bool", TokenType::KEYWORD_BOOL},
+    {"string", TokenType::KEYWORD_STRING},
     {"for", TokenType::KEYWORD_FOR},
     {"window", TokenType::KEYWORD_WINDOW}
 };
@@ -62,6 +64,7 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::END_OF_FILE: return "EOF";
         case TokenType::IDENTIFIER: return "identifier";
         case TokenType::NUMBER_LITERAL: return "number";
+        case TokenType::LONG_LITERAL: return "long";
         case TokenType::STRING_LITERAL: return "string";
         case TokenType::FLOAT_LITERAL: return "float";
         case TokenType::KEYWORD_FN: return "fn";
@@ -75,8 +78,10 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::KEYWORD_PRINT: return "print";
         case TokenType::KEYWORD_IMPORT: return "import";
         case TokenType::KEYWORD_INT: return "int";
+        case TokenType::KEYWORD_LONG: return "long";
         case TokenType::KEYWORD_FLOAT: return "float";
         case TokenType::KEYWORD_BOOL: return "bool";
+        case TokenType::KEYWORD_STRING: return "string";
         case TokenType::KEYWORD_FOR: return "for";
         case TokenType::KEYWORD_WINDOW: return "window";
         case TokenType::PUNCTUATOR_LPAREN: return "(";
@@ -218,16 +223,19 @@ void Lexer::lexNumber() {
         try {
             unsigned long long value = std::stoull(text);
             constexpr unsigned long long INT32_MAX_VAL = 2147483647ULL;
+            constexpr unsigned long long INT64_MAX_VAL = 9223372036854775807ULL;
             
-            if (value > INT32_MAX_VAL) {
-                addError("Integer literal '" + text + "' out of range (valid range: 0 to 2147483647 for positive, -2147483648 to -1 via unary minus)");
-                addToken(TokenType::NUMBER_LITERAL, text);
+            if (value > INT64_MAX_VAL) {
+                addError("Integer literal '" + text + "' out of range (valid range: 0 to 9223372036854775807 for positive)");
+                addToken(TokenType::LONG_LITERAL, text);
+            } else if (value > INT32_MAX_VAL) {
+                addToken(TokenType::LONG_LITERAL, text);
             } else {
                 addToken(TokenType::NUMBER_LITERAL, text);
             }
         } catch (const std::out_of_range&) {
-            addError("Integer literal '" + text + "' out of range (valid range: 0 to 2147483647 for positive, -2147483648 to -1 via unary minus)");
-            addToken(TokenType::NUMBER_LITERAL, text);
+            addError("Integer literal '" + text + "' out of range (valid range: 0 to 9223372036854775807 for positive)");
+            addToken(TokenType::LONG_LITERAL, text);
         }
     }
 }
@@ -238,9 +246,18 @@ void Lexer::lexString() {
     advance();
     while (!isAtEnd() && peek() != '"') {
         if (peek() == '\\') {
-            text += advance();
+            advance();
             if (!isAtEnd()) {
-                text += advance();
+                char escaped = advance();
+                switch (escaped) {
+                    case 'n': text += '\n'; break;
+                    case 't': text += '\t'; break;
+                    case 'r': text += '\r'; break;
+                    case '\\': text += '\\'; break;
+                    case '"': text += '"'; break;
+                    case '0': text += '\0'; break;
+                    default: text += escaped; break;
+                }
             }
         } else {
             text += advance();

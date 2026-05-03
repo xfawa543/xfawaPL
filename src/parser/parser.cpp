@@ -20,8 +20,10 @@ bool isKeywordLikeNameToken(TokenType type) {
         case TokenType::KEYWORD_PRINT:
         case TokenType::KEYWORD_IMPORT:
         case TokenType::KEYWORD_INT:
+        case TokenType::KEYWORD_LONG:
         case TokenType::KEYWORD_FLOAT:
         case TokenType::KEYWORD_BOOL:
+        case TokenType::KEYWORD_STRING:
         case TokenType::KEYWORD_FOR:
         case TokenType::KEYWORD_WINDOW:
             return true;
@@ -594,12 +596,18 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     } else if (peek().is(TokenType::KEYWORD_INT)) {
         advance();
         return parseTypedAssignmentStatement(VarType::INT);
+    } else if (peek().is(TokenType::KEYWORD_LONG)) {
+        advance();
+        return parseTypedAssignmentStatement(VarType::LONG);
     } else if (peek().is(TokenType::KEYWORD_FLOAT)) {
         advance();
         return parseTypedAssignmentStatement(VarType::FLOAT);
     } else if (peek().is(TokenType::KEYWORD_BOOL)) {
         advance();
         return parseTypedAssignmentStatement(VarType::BOOL);
+    } else if (peek().is(TokenType::KEYWORD_STRING)) {
+        advance();
+        return parseTypedAssignmentStatement(VarType::STRING);
     } else if (peek().is(TokenType::PUNCTUATOR_LBRACE)) {
         return parseBlockStatement();
     } else if (peek().is(TokenType::IDENTIFIER)) {
@@ -1000,6 +1008,11 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return std::make_unique<NumberLiteral>(value, peek(-1).location);
     }
     
+    if (consume(TokenType::LONG_LITERAL)) {
+        int64_t value = std::stoll(peek(-1).text);
+        return std::make_unique<NumberLiteral>(value, peek(-1).location);
+    }
+    
     if (consume(TokenType::FLOAT_LITERAL)) {
         double value = std::stod(peek(-1).text);
         return std::make_unique<FloatLiteral>(value, peek(-1).location);
@@ -1105,7 +1118,8 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
                 return nullptr;
             }
             
-            return std::make_unique<ArrayRangeExpression>(name, std::move(startExpr), std::move(endExpr), loc);
+            auto varExprForRange = std::make_unique<VariableExpression>(name, loc);
+            return std::make_unique<ArrayRangeExpression>(std::move(varExprForRange), std::move(startExpr), std::move(endExpr), loc);
         }
         
         auto varExpr = std::make_unique<VariableExpression>(name, loc);
@@ -1173,6 +1187,22 @@ std::unique_ptr<Expression> Parser::parsePostfix(std::unique_ptr<Expression> exp
         auto indexExpr = parseExpression();
         if (!indexExpr) {
             return nullptr;
+        }
+        
+        if (consume(TokenType::PUNCTUATOR_DOT_DOT_DOT)) {
+            auto endExpr = parseExpression();
+            if (!endExpr) {
+                addError("Expected expression after '...' in array slice");
+                return nullptr;
+            }
+            
+            if (!consume(TokenType::PUNCTUATOR_RBRACKET)) {
+                addError("Expected ']' after array slice");
+                return nullptr;
+            }
+            
+            expr = std::make_unique<ArrayRangeExpression>(std::move(expr), std::move(indexExpr), std::move(endExpr), expr->location);
+            continue;
         }
         
         if (!consume(TokenType::PUNCTUATOR_RBRACKET)) {
