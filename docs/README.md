@@ -52,7 +52,5 @@ Welcome to the xfawaPL documentation! Here you will learn how to write programs 
 
 ---
 
-## 版本信息 / Version Info
-
-- **编译器版本 / Compiler Version**: 1.0.0-a.13
-- **Mods内核版本 / Mods Kernel Version**: mods-a-1.0.2
+**快去尝试编写你的第一个xfawaPL程序吧！**
+** Go try to write your first one xfawaPL program it! **
