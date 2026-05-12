@@ -57,6 +57,18 @@ struct XRBoxCommand {
     int scrollOffset = 0;
 };
 
+struct XRInputCommand {
+    std::string id;
+    std::string varName;
+    int x;
+    int y;
+    int width;
+    int height;
+    std::string text;
+    bool focused = false;
+    HWND hwnd = nullptr;
+};
+
 HWND g_window = nullptr;
 HINSTANCE g_instance = nullptr;
 bool g_shouldClose = false;
@@ -67,6 +79,7 @@ std::vector<XRRectCommand> g_rects;
 std::vector<XRTextCommand> g_texts;
 std::vector<XRButtonCommand> g_buttons;
 std::vector<XRBoxCommand> g_boxes;
+std::vector<XRInputCommand> g_inputs;
 
 std::string trim(const std::string& input) {
     size_t start = 0;
@@ -276,6 +289,28 @@ void paintBox(HDC dc, const XRBoxCommand& box) {
     DeleteObject(boxClipRegion);
 }
 
+void paintInput(HDC dc, const XRInputCommand& input) {
+    RECT outer{input.x, input.y, input.x + input.width, input.y + input.height};
+    HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+    HPEN pen = CreatePen(PS_SOLID, 1, input.focused ? RGB(0, 0, 0) : RGB(128, 128, 128));
+    HGDIOBJ oldBrush = SelectObject(dc, brush);
+    HGDIOBJ oldPen = SelectObject(dc, pen);
+    Rectangle(dc, outer.left, outer.top, outer.right, outer.bottom);
+    SelectObject(dc, oldBrush);
+    SelectObject(dc, oldPen);
+    DeleteObject(brush);
+    DeleteObject(pen);
+
+    RECT inner{outer.left + 4, outer.top + 4, outer.right - 4, outer.bottom - 4};
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, RGB(0, 0, 0));
+    std::string displayText = input.text;
+    if (input.focused) {
+        displayText += "|";
+    }
+    DrawTextA(dc, displayText.c_str(), -1, &inner, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+}
+
 XRBoxCommand* findBoxById(const std::string& id) {
     for (auto& box : g_boxes) {
         if (box.id == id) {
@@ -311,6 +346,20 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         case WM_LBUTTONDOWN: {
             int mouseX = GET_X_LPARAM(lParam);
             int mouseY = GET_Y_LPARAM(lParam);
+            
+            for (auto& input : g_inputs) {
+                input.focused = false;
+            }
+            
+            for (auto it = g_inputs.rbegin(); it != g_inputs.rend(); ++it) {
+                if (mouseX >= it->x && mouseX < it->x + it->width &&
+                    mouseY >= it->y && mouseY < it->y + it->height) {
+                    it->focused = true;
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                    return 0;
+                }
+            }
+            
             for (auto it = g_buttons.rbegin(); it != g_buttons.rend(); ++it) {
                 if (pointInButton(*it, mouseX, mouseY)) {
                     if (it->handler) {
@@ -353,6 +402,33 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             ReleaseDC(hwnd, dc);
             break;
         }
+        case WM_CHAR: {
+            char ch = static_cast<char>(wParam);
+            for (auto& input : g_inputs) {
+                if (input.focused) {
+                    if (ch == '\b' && !input.text.empty()) {
+                        input.text.pop_back();
+                    } else if (ch >= 32 && ch < 127) {
+                        input.text += ch;
+                    }
+                    InvalidateRect(hwnd, nullptr, FALSE);
+                    return 0;
+                }
+            }
+            break;
+        }
+        case WM_KEYDOWN: {
+            if (wParam == VK_BACK) {
+                for (auto& input : g_inputs) {
+                    if (input.focused && !input.text.empty()) {
+                        input.text.pop_back();
+                        InvalidateRect(hwnd, nullptr, FALSE);
+                        return 0;
+                    }
+                }
+            }
+            break;
+        }
         case WM_ERASEBKGND:
             return 1;
         case WM_CLOSE:
@@ -384,6 +460,9 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             }
             for (const auto& box : g_boxes) {
                 paintBox(memoryDc, box);
+            }
+            for (const auto& input : g_inputs) {
+                paintInput(memoryDc, input);
             }
             for (const auto& button : g_buttons) {
                 paintButton(memoryDc, button);
@@ -557,6 +636,43 @@ extern "C" int xr_draw_box(int x, int y, int width, int height, const char* id, 
     command.text = boxText;
     g_boxes.push_back(std::move(command));
     return 1;
+}
+
+XRInputCommand* findInputById(const std::string& id) {
+    for (auto& input : g_inputs) {
+        if (input.id == id) {
+            return &input;
+        }
+    }
+    return nullptr;
+}
+
+extern "C" const char* xr_draw_input(int x, int y, int width, int height, const char* id, const char* varName) {
+    const std::string inputId = id ? id : "";
+    const std::string inputVar = varName ? varName : "";
+    if (inputId.empty()) {
+        return "";
+    }
+
+    XRInputCommand* existing = findInputById(inputId);
+    if (existing) {
+        existing->x = x;
+        existing->y = y;
+        existing->width = width;
+        existing->height = height;
+        return existing->text.c_str();
+    }
+
+    XRInputCommand command{};
+    command.id = inputId;
+    command.varName = inputVar;
+    command.x = x;
+    command.y = y;
+    command.width = width;
+    command.height = height;
+    command.text = "";
+    g_inputs.push_back(std::move(command));
+    return g_inputs.back().text.c_str();
 }
 
 extern "C" int xr_append_box(const char* id, const char* text) {

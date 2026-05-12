@@ -45,6 +45,7 @@ private:
     std::unique_ptr<ButtonStatement> parseButtonStatement();
     std::unique_ptr<TextStatement> parseTextStatement();
     std::unique_ptr<BoxStatement> parseBoxStatement();
+    std::unique_ptr<InputStatement> parseInputStatement();
     std::unique_ptr<Function> parseFunction();
     std::unique_ptr<Statement> parseStatement();
     std::unique_ptr<PrintStatement> parsePrintStatement();

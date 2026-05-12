@@ -199,9 +199,17 @@ std::unique_ptr<WindowStatement> Parser::parseWindowStatement() {
             windowDecl->boxes.push_back(std::move(boxItem));
             continue;
         }
+        if (peek().is(TokenType::KEYWORD_INPUT) && peek(1).is(TokenType::PUNCTUATOR_LBRACE)) {
+            auto inputItem = parseInputStatement();
+            if (!inputItem) {
+                return nullptr;
+            }
+            windowDecl->inputs.push_back(std::move(inputItem));
+            continue;
+        }
 
         if (!consume(TokenType::IDENTIFIER)) {
-            addError("Expected window property name, button block, text block, or box block");
+            addError("Expected window property name, button block, text block, box block, or input block");
             return nullptr;
         }
 
@@ -501,6 +509,89 @@ std::unique_ptr<BoxStatement> Parser::parseBoxStatement() {
     }
 
     return boxItem;
+}
+
+std::unique_ptr<InputStatement> Parser::parseInputStatement() {
+    SourceLocation loc = peek().location;
+
+    if (!consume(TokenType::KEYWORD_INPUT)) {
+        return nullptr;
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_LBRACE)) {
+        addError("Expected '{' after 'input'");
+        return nullptr;
+    }
+
+    auto inputItem = std::make_unique<InputStatement>(loc);
+
+    while (!isAtEnd() && !peek().is(TokenType::PUNCTUATOR_RBRACE)) {
+        if (!consume(TokenType::IDENTIFIER)) {
+            addError("Expected input property name");
+            return nullptr;
+        }
+
+        std::string propertyName = peek(-1).text;
+        if (!consume(TokenType::PUNCTUATOR_COLON)) {
+            addError("Expected ':' after input property '" + propertyName + "'");
+            return nullptr;
+        }
+
+        if (propertyName == "id") {
+            if (consume(TokenType::IDENTIFIER) || consume(TokenType::STRING_LITERAL)) {
+                inputItem->id = peek(-1).text;
+            } else {
+                addError("Expected identifier or string for input id");
+                return nullptr;
+            }
+        } else if (propertyName == "x") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for input x");
+                return nullptr;
+            }
+            inputItem->x = std::stoi(peek(-1).text);
+        } else if (propertyName == "y") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for input y");
+                return nullptr;
+            }
+            inputItem->y = std::stoi(peek(-1).text);
+        } else if (propertyName == "width") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for input width");
+                return nullptr;
+            }
+            inputItem->width = std::stoi(peek(-1).text);
+        } else if (propertyName == "height" || propertyName == "high") {
+            if (!consume(TokenType::NUMBER_LITERAL)) {
+                addError("Expected integer literal for input height");
+                return nullptr;
+            }
+            inputItem->height = std::stoi(peek(-1).text);
+        } else if (propertyName == "var") {
+            if (consume(TokenType::IDENTIFIER)) {
+                inputItem->varName = peek(-1).text;
+            } else {
+                addError("Expected identifier for input var");
+                return nullptr;
+            }
+        } else {
+            addError("Unknown input property: " + propertyName);
+            return nullptr;
+        }
+    }
+
+    if (!consume(TokenType::PUNCTUATOR_RBRACE)) {
+        addError("Expected '}' to close input block");
+        return nullptr;
+    }
+
+    if (inputItem->width <= 0 || inputItem->height <= 0) {
+        addError("Input width and height must be greater than zero");
+        return nullptr;
+    }
+
+    return inputItem;
 }
 
 std::unique_ptr<Function> Parser::parseFunction() {
@@ -883,7 +974,7 @@ std::unique_ptr<Expression> Parser::parseExpression() {
 std::unique_ptr<Expression> Parser::parseLogicalOr() {
     auto left = parseLogicalAnd();
     
-    while (!isAtEnd() && peek().is(TokenType::PUNCTUATOR_OR)) {
+    while (!isAtEnd() && (peek().is(TokenType::PUNCTUATOR_OR) || peek().is(TokenType::KEYWORD_OR))) {
         BinaryOpType op = BinaryOpType::OR;
         advance();
         auto right = parseLogicalAnd();
@@ -896,7 +987,7 @@ std::unique_ptr<Expression> Parser::parseLogicalOr() {
 std::unique_ptr<Expression> Parser::parseLogicalAnd() {
     auto left = parseEquality();
     
-    while (!isAtEnd() && peek().is(TokenType::PUNCTUATOR_AND)) {
+    while (!isAtEnd() && (peek().is(TokenType::PUNCTUATOR_AND) || peek().is(TokenType::KEYWORD_AND))) {
         BinaryOpType op = BinaryOpType::AND;
         advance();
         auto right = parseEquality();

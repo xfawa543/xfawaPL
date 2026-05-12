@@ -509,6 +509,30 @@ public:
     }
 };
 
+class InputStatement : public Statement {
+public:
+    int x = 20;
+    int y = 20;
+    int width = 200;
+    int height = 32;
+    std::string id = "input";
+    std::string varName = "";
+
+    InputStatement(const SourceLocation& loc = SourceLocation())
+        : Statement(NodeType::INPUT_STATEMENT, loc) {}
+
+    std::string toString() const override {
+        return "input {\n"
+               "    id: " + id + "\n"
+               "    x: " + std::to_string(x) + "\n"
+               "    y: " + std::to_string(y) + "\n"
+               "    width: " + std::to_string(width) + "\n"
+               "    height: " + std::to_string(height) + "\n"
+               "    var: " + varName + "\n"
+               "  }";
+    }
+};
+
 class WindowStatement : public Statement {
 public:
     int width = 800;
@@ -519,6 +543,7 @@ public:
     std::vector<std::unique_ptr<ButtonStatement>> buttons;
     std::vector<std::unique_ptr<TextStatement>> texts;
     std::vector<std::unique_ptr<BoxStatement>> boxes;
+    std::vector<std::unique_ptr<InputStatement>> inputs;
 
     WindowStatement(const SourceLocation& loc = SourceLocation())
         : Statement(NodeType::WINDOW_STATEMENT, loc) {}
@@ -540,6 +565,9 @@ public:
         }
         for (const auto& box : boxes) {
             result += "  " + box->toString() + "\n";
+        }
+        for (const auto& input : inputs) {
+            result += "  " + input->toString() + "\n";
         }
         result += "}";
         return result;

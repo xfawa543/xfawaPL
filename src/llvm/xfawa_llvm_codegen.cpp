@@ -187,7 +187,11 @@ void LLVMCodegen::initBuiltins() {
     llvm::FunctionType* printfType = llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy}, true);
     llvm::Function* printfFunc = declareFunction("printf", printfType);
     printfFunc->setCallingConv(llvm::CallingConv::C);
+    printfFunc->addFnAttr(llvm::Attribute::NoUnwind);
     declareFunction("snprintf", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy, builder.getInt64Ty(), ptrTy}, true));
+    declareFunction("setvbuf", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy, ptrTy, builder.getInt32Ty(), builder.getInt64Ty()}, false));
+    declareFunction("fflush", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy}, false));
+    declareFunction("__acrt_iob_func", llvm::FunctionType::get(ptrTy, {builder.getInt32Ty()}, false));
 
     llvm::FunctionType* mallocType = llvm::FunctionType::get(ptrTy, {builder.getInt64Ty()}, false);
     declareFunction("malloc", mallocType);
@@ -258,6 +262,7 @@ void LLVMCodegen::initBuiltins() {
     declareFunction("xr_draw_text", llvm::FunctionType::get(builder.getInt32Ty(), {builder.getInt32Ty(), builder.getInt32Ty(), ptrTy, builder.getInt32Ty()}, false));
     declareFunction("xr_draw_button", llvm::FunctionType::get(builder.getInt32Ty(), {builder.getInt32Ty(), builder.getInt32Ty(), builder.getInt32Ty(), builder.getInt32Ty(), ptrTy, ptrTy}, false));
     declareFunction("xr_draw_box", llvm::FunctionType::get(builder.getInt32Ty(), {builder.getInt32Ty(), builder.getInt32Ty(), builder.getInt32Ty(), builder.getInt32Ty(), ptrTy, ptrTy}, false));
+    declareFunction("xr_draw_input", llvm::FunctionType::get(ptrTy, {builder.getInt32Ty(), builder.getInt32Ty(), builder.getInt32Ty(), builder.getInt32Ty(), ptrTy, ptrTy}, false));
     declareFunction("xr_append_box", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy, ptrTy}, false));
     declareFunction("xr_load_style", llvm::FunctionType::get(builder.getInt32Ty(), {ptrTy}, false));
     declareFunction("xr_set_clear_color", llvm::FunctionType::get(builder.getInt32Ty(), {builder.getInt32Ty()}, false));
@@ -380,6 +385,40 @@ llvm::Value* LLVMCodegen::codegen(BinaryOp* expr) {
     
     bool isFloatOp = leftType->isFloatTy() || rightType->isFloatTy();
     bool isLongOp = leftType->isIntegerTy(64) || rightType->isIntegerTy(64);
+    bool isPtrOp = leftType->isPointerTy() && rightType->isPointerTy();
+    
+    if (isPtrOp && expr->op == BinaryOpType::ADD) {
+        llvm::Function* strlenFunc = module->getFunction("strlen");
+        if (!strlenFunc) {
+            llvm::FunctionType* strlenType = llvm::FunctionType::get(builder.getInt64Ty(), {builder.getPtrTy()}, false);
+            strlenFunc = llvm::Function::Create(strlenType, llvm::Function::ExternalLinkage, 0, "strlen", module);
+        }
+        
+        llvm::Value* leftLen = builder.CreateCall(strlenFunc, {leftVal}, "left.len");
+        llvm::Value* rightLen = builder.CreateCall(strlenFunc, {rightVal}, "right.len");
+        
+        llvm::Value* totalLen = builder.CreateAdd(leftLen, rightLen, "total.len");
+        llvm::Value* totalLenPlus1 = builder.CreateAdd(totalLen, createConstInt(context, builder.getInt64Ty(), 1), "total.len.plus1");
+        
+        llvm::Function* mallocFunc = module->getFunction("malloc");
+        llvm::Value* resultPtr = builder.CreateCall(mallocFunc, {totalLenPlus1}, "concat.alloc");
+        
+        llvm::Function* strcpyFunc = module->getFunction("strcpy");
+        if (!strcpyFunc) {
+            llvm::FunctionType* strcpyType = llvm::FunctionType::get(builder.getPtrTy(), {builder.getPtrTy(), builder.getPtrTy()}, false);
+            strcpyFunc = llvm::Function::Create(strcpyType, llvm::Function::ExternalLinkage, 0, "strcpy", module);
+        }
+        builder.CreateCall(strcpyFunc, {resultPtr, leftVal}, "strcpy.left");
+        
+        llvm::Function* strcatFunc = module->getFunction("strcat");
+        if (!strcatFunc) {
+            llvm::FunctionType* strcatType = llvm::FunctionType::get(builder.getPtrTy(), {builder.getPtrTy(), builder.getPtrTy()}, false);
+            strcatFunc = llvm::Function::Create(strcatType, llvm::Function::ExternalLinkage, 0, "strcat", module);
+        }
+        builder.CreateCall(strcatFunc, {resultPtr, rightVal}, "strcat.right");
+        
+        return resultPtr;
+    }
     
     if (leftType->isIntegerTy(1)) {
         llvm::Type* i32 = llvm::Type::getInt32Ty(context);
@@ -538,18 +577,56 @@ llvm::Value* LLVMCodegen::codegen(CallExpression* expr) {
     }
     
     std::vector<llvm::Value*> args;
+    std::vector<VarType> argTypes;
     for (auto& arg : expr->args) {
+        VarType argType = VarType::UNKNOWN;
+        if (auto* strLit = dynamic_cast<StringLiteral*>(arg.get())) {
+            argType = VarType::STRING;
+        } else if (auto* numLit = dynamic_cast<NumberLiteral*>(arg.get())) {
+            constexpr int64_t INT32_MAX_VAL = 2147483647LL;
+            if (numLit->value > INT32_MAX_VAL || numLit->value < -INT32_MAX_VAL - 1) {
+                argType = VarType::LONG;
+            } else {
+                argType = VarType::INT;
+            }
+        } else if (auto* varExpr = dynamic_cast<VariableExpression*>(arg.get())) {
+            auto typeIt = localTypes.find(varExpr->name);
+            if (typeIt != localTypes.end()) {
+                argType = typeIt->second;
+            }
+        }
+        argTypes.push_back(argType);
+        
         llvm::Value* argVal = codegen(arg.get());
         if (!argVal) return nullptr;
         
         if (argVal->getType()->isIntegerTy(1)) {
-            argVal = builder.CreateZExtOrTrunc(argVal, llvm::Type::getInt32Ty(context), "argbool");
+            argVal = builder.CreateZExtOrTrunc(argVal, llvm::Type::getInt64Ty(context), "argbool");
+            argVal = builder.CreateIntToPtr(argVal, builder.getPtrTy(), "argboolptr");
+        } else if (argVal->getType()->isIntegerTy(32)) {
+            argVal = builder.CreateSExt(argVal, llvm::Type::getInt64Ty(context), "argext");
+            argVal = builder.CreateIntToPtr(argVal, builder.getPtrTy(), "argextptr");
+        } else if (argVal->getType()->isIntegerTy(64)) {
+            argVal = builder.CreateIntToPtr(argVal, builder.getPtrTy(), "argptr");
         }
         
         args.push_back(argVal);
     }
     
+    callArgTypes[funcName] = argTypes;
+    
     llvm::CallInst* callInst = builder.CreateCall(callee->getFunctionType(), callee, args);
+    
+    auto retTypeIt = funcReturnTypes.find(funcName);
+    if (retTypeIt != funcReturnTypes.end()) {
+        if (retTypeIt->second == VarType::FLOAT) {
+            llvm::Value* bits = callInst;
+            bits = builder.CreateBitCast(bits, builder.getDoubleTy(), "float.ret.bits");
+            return builder.CreateFPTrunc(bits, builder.getFloatTy(), "float.ret");
+        } else if (retTypeIt->second == VarType::BOOL) {
+            return builder.CreateTrunc(callInst, builder.getInt1Ty(), "bool.ret");
+        }
+    }
     
     return callInst;
 }
@@ -702,20 +779,47 @@ llvm::Value* LLVMCodegen::codegen(ArrayLiteral* expr) {
         return llvm::ConstantPointerNull::get(builder.getPtrTy());
     }
     
+    bool isStringArray = false;
+    bool isLongArray = false;
+    size_t elemSize = 4;
+    
+    if (!expr->elements.empty()) {
+        if (auto* strLit = dynamic_cast<StringLiteral*>(expr->elements[0].get())) {
+            isStringArray = true;
+            elemSize = 8;
+            (void)strLit;
+        } else if (auto* numLit = dynamic_cast<NumberLiteral*>(expr->elements[0].get())) {
+            constexpr int64_t INT32_MAX_VAL = 2147483647LL;
+            if (numLit->value > INT32_MAX_VAL || numLit->value < -INT32_MAX_VAL - 1) {
+                isLongArray = true;
+                elemSize = 8;
+            }
+        }
+    }
+    
     llvm::Function* mallocFunc = module->getFunction("malloc");
-    llvm::Value* allocSize = createConstInt(context, builder.getInt64Ty(), size * 4);
+    llvm::Value* allocSize = createConstInt(context, builder.getInt64Ty(), size * elemSize);
     llvm::Value* arrPtr = builder.CreateCall(mallocFunc, {allocSize}, "arr.alloc");
+    
+    llvm::Type* elemType = builder.getInt32Ty();
+    if (isStringArray) {
+        elemType = static_cast<llvm::Type*>(builder.getInt8Ty()->getPointerTo());
+    } else if (isLongArray) {
+        elemType = static_cast<llvm::Type*>(builder.getInt64Ty());
+    }
     
     for (size_t i = 0; i < size; i++) {
         llvm::Value* elemVal = codegen(expr->elements[i].get());
         if (!elemVal) return nullptr;
         
-        if (elemVal->getType()->isIntegerTy(1)) {
-            elemVal = builder.CreateZExtOrTrunc(elemVal, builder.getInt32Ty(), "boolext");
+        if (!isStringArray) {
+            if (elemVal->getType()->isIntegerTy(1)) {
+                elemVal = builder.CreateZExtOrTrunc(elemVal, isLongArray ? builder.getInt64Ty() : builder.getInt32Ty(), "boolext");
+            }
         }
         
         llvm::Value* idx = createConstInt(context, builder.getInt64Ty(), i);
-        llvm::Value* elemPtr = builder.CreateGEP(builder.getInt32Ty(), arrPtr, idx, "elem.ptr");
+        llvm::Value* elemPtr = builder.CreateGEP(elemType, arrPtr, idx, "elem.ptr");
         builder.CreateStore(elemVal, elemPtr);
     }
     
@@ -730,10 +834,15 @@ llvm::Value* LLVMCodegen::codegen(ArrayIndexExpression* expr) {
     if (!idxVal) return nullptr;
     
     int64_t knownArrayLen = 0;
+    VarType arrType = VarType::UNKNOWN;
     if (auto* varExpr = dynamic_cast<VariableExpression*>(expr->array.get())) {
         auto lenIt = arrayLengths.find(varExpr->name);
         if (lenIt != arrayLengths.end()) {
             knownArrayLen = lenIt->second;
+        }
+        auto typeIt = localTypes.find(varExpr->name);
+        if (typeIt != localTypes.end()) {
+            arrType = typeIt->second;
         }
     }
     
@@ -764,8 +873,9 @@ llvm::Value* LLVMCodegen::codegen(ArrayIndexExpression* expr) {
         idxExt = builder.CreateSExt(finalIdx, builder.getInt64Ty(), "idx.ext");
     }
     
-    llvm::Value* elemPtr = builder.CreateGEP(builder.getInt32Ty(), arrVal, idxExt, "arr.elem.ptr");
-    return builder.CreateLoad(builder.getInt32Ty(), elemPtr, "arr.elem");
+    llvm::Type* elemType = getArrayElementType(arrType);
+    llvm::Value* elemPtr = builder.CreateGEP(elemType, arrVal, idxExt, "arr.elem.ptr");
+    return builder.CreateLoad(elemType, elemPtr, "arr.elem");
 }
 
 llvm::Value* LLVMCodegen::codegen(ExpressionStatement* stmt) {
@@ -825,10 +935,14 @@ llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
                 if (valueType->isPointerTy() || dynamic_cast<ArrayRangeExpression*>(stmt->value.get())) {
                     if (stmt->declaredType == VarType::INT) {
                         actualType = VarType::ARRAY_INT;
+                    } else if (stmt->declaredType == VarType::LONG) {
+                        actualType = VarType::ARRAY_LONG;
                     } else if (stmt->declaredType == VarType::FLOAT) {
                         actualType = VarType::ARRAY_FLOAT;
                     } else if (stmt->declaredType == VarType::BOOL) {
                         actualType = VarType::ARRAY_BOOL;
+                    } else if (stmt->declaredType == VarType::STRING) {
+                        actualType = VarType::ARRAY_STRING;
                     }
                 }
                 valueType = getLLVMType(actualType);
@@ -841,7 +955,26 @@ llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
                     localTypes[stmt->name] = VarType::FLOAT;
                 } else if (valueType->isPointerTy() || dynamic_cast<ArrayRangeExpression*>(stmt->value.get())) {
                     valueType = llvm::PointerType::get(context, 0);
-                    localTypes[stmt->name] = VarType::ARRAY_INT;
+                    if (auto* arrLit = dynamic_cast<ArrayLiteral*>(stmt->value.get())) {
+                        if (!arrLit->elements.empty()) {
+                            if (dynamic_cast<StringLiteral*>(arrLit->elements[0].get())) {
+                                localTypes[stmt->name] = VarType::ARRAY_STRING;
+                            } else if (auto* numLit = dynamic_cast<NumberLiteral*>(arrLit->elements[0].get())) {
+                                constexpr int64_t INT32_MAX_VAL = 2147483647LL;
+                                if (numLit->value > INT32_MAX_VAL || numLit->value < -INT32_MAX_VAL - 1) {
+                                    localTypes[stmt->name] = VarType::ARRAY_LONG;
+                                } else {
+                                    localTypes[stmt->name] = VarType::ARRAY_INT;
+                                }
+                            } else {
+                                localTypes[stmt->name] = VarType::ARRAY_INT;
+                            }
+                        } else {
+                            localTypes[stmt->name] = VarType::ARRAY_INT;
+                        }
+                    } else {
+                        localTypes[stmt->name] = VarType::ARRAY_INT;
+                    }
                 } else {
                     localTypes[stmt->name] = VarType::INT;
                 }
@@ -874,6 +1007,51 @@ llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
 }
 
 llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
+    VarType exprType = VarType::UNKNOWN;
+    if (auto* strLit = dynamic_cast<StringLiteral*>(stmt->expr.get())) {
+        exprType = VarType::STRING;
+    } else if (auto* numLit = dynamic_cast<NumberLiteral*>(stmt->expr.get())) {
+        constexpr int64_t INT32_MAX_VAL = 2147483647LL;
+        if (numLit->value > INT32_MAX_VAL || numLit->value < -INT32_MAX_VAL - 1) {
+            exprType = VarType::LONG;
+        } else {
+            exprType = VarType::INT;
+        }
+    } else if (auto* floatLit = dynamic_cast<FloatLiteral*>(stmt->expr.get())) {
+        exprType = VarType::FLOAT;
+    } else if (auto* boolLit = dynamic_cast<BooleanLiteral*>(stmt->expr.get())) {
+        exprType = VarType::BOOL;
+    } else if (auto* varExpr = dynamic_cast<VariableExpression*>(stmt->expr.get())) {
+        auto typeIt = localTypes.find(varExpr->name);
+        if (typeIt != localTypes.end()) {
+            exprType = typeIt->second;
+        }
+    } else if (auto* callExpr = dynamic_cast<CallExpression*>(stmt->expr.get())) {
+        std::string funcName = callExpr->ns.empty() ? callExpr->name : (callExpr->ns + ":" + callExpr->name);
+        auto retTypeIt = funcReturnTypes.find(funcName);
+        if (retTypeIt != funcReturnTypes.end()) {
+            exprType = retTypeIt->second;
+        }
+    } else if (auto* arrIdx = dynamic_cast<ArrayIndexExpression*>(stmt->expr.get())) {
+        if (auto* varExpr = dynamic_cast<VariableExpression*>(arrIdx->array.get())) {
+            auto typeIt = localTypes.find(varExpr->name);
+            if (typeIt != localTypes.end()) {
+                VarType arrType = typeIt->second;
+                if (arrType == VarType::ARRAY_STRING) {
+                    exprType = VarType::STRING;
+                } else if (arrType == VarType::ARRAY_INT) {
+                    exprType = VarType::INT;
+                } else if (arrType == VarType::ARRAY_LONG) {
+                    exprType = VarType::LONG;
+                } else if (arrType == VarType::ARRAY_FLOAT) {
+                    exprType = VarType::FLOAT;
+                } else if (arrType == VarType::ARRAY_BOOL) {
+                    exprType = VarType::BOOL;
+                }
+            }
+        }
+    }
+    
     llvm::Value* arg = codegen(stmt->expr.get());
     if (!arg) return nullptr;
 
@@ -885,7 +1063,7 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
         llvm::Value* nullPtr = llvm::Constant::getNullValue(builder.getInt8Ty()->getPointerTo());
         llvm::Value* textPtr = nullptr;
 
-        if (arg->getType()->isPointerTy()) {
+        if (arg->getType()->isPointerTy() && exprType == VarType::STRING) {
             textPtr = builder.CreateBitCast(arg, builder.getInt8Ty()->getPointerTo(), "window_print_text_ptr");
         } else {
             llvm::AllocaInst* buffer = builder.CreateAlloca(builder.getInt8Ty(), builder.getInt32(256), "print_buffer");
@@ -901,6 +1079,24 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
                 printArg = builder.CreateZExtOrTrunc(arg, builder.getInt32Ty(), "print_bool_ext");
             } else if (arg->getType()->isIntegerTy(64)) {
                 formatPtr = builder.CreateGlobalStringPtr("%lld", "print_format_long");
+            } else if (arg->getType()->isPointerTy()) {
+                if (exprType == VarType::LONG || exprType == VarType::UNKNOWN) {
+                    formatPtr = builder.CreateGlobalStringPtr("%lld", "print_format_long");
+                    printArg = builder.CreatePtrToInt(arg, builder.getInt64Ty(), "ptrtolong");
+                } else if (exprType == VarType::INT) {
+                    formatPtr = builder.CreateGlobalStringPtr("%d", "print_format_int");
+                    printArg = builder.CreatePtrToInt(arg, builder.getInt32Ty(), "ptrtoint");
+                } else if (exprType == VarType::BOOL) {
+                    formatPtr = builder.CreateGlobalStringPtr("%d", "print_format_bool");
+                    printArg = builder.CreatePtrToInt(arg, builder.getInt32Ty(), "ptrtobool");
+                } else if (exprType == VarType::FLOAT) {
+                    formatPtr = builder.CreateGlobalStringPtr("%f", "print_format_float");
+                    printArg = builder.CreatePtrToInt(arg, builder.getInt64Ty(), "ptrtofloat");
+                    printArg = builder.CreateSIToFP(printArg, builder.getDoubleTy(), "inttofp");
+                } else {
+                    formatPtr = builder.CreateGlobalStringPtr("%s", "print_format_str");
+                    printArg = arg;
+                }
             } else {
                 formatPtr = builder.CreateGlobalStringPtr("%d", "print_format_int");
                 if (!arg->getType()->isIntegerTy(32)) {
@@ -941,25 +1137,40 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
 
     llvm::Function* printfFunc = module->getFunction("printf");
     if (printfFunc) {
-        llvm::Value* formatStr;
+        llvm::Value* formatPtr;
         llvm::Value* printArg = arg;
         
         if (arg->getType()->isFloatTy()) {
-            formatStr = builder.CreateGlobalString("%f\n", "format");
+            formatPtr = builder.CreateGlobalStringPtr("%f\n", "format");
             printArg = builder.CreateFPExt(arg, builder.getDoubleTy(), "float.ext");
         } else if (arg->getType()->isIntegerTy(1)) {
-            formatStr = builder.CreateGlobalString("%d\n", "format");
+            formatPtr = builder.CreateGlobalStringPtr("%d\n", "format");
             printArg = builder.CreateZExtOrTrunc(arg, builder.getInt32Ty(), "bool.ext");
         } else if (arg->getType()->isIntegerTy(64)) {
-            formatStr = builder.CreateGlobalString("%lld\n", "format");
+            formatPtr = builder.CreateGlobalStringPtr("%lld\n", "format");
         } else if (arg->getType()->isIntegerTy()) {
-            formatStr = builder.CreateGlobalString("%d\n", "format");
+            formatPtr = builder.CreateGlobalStringPtr("%d\n", "format");
         } else if (arg->getType()->isPointerTy()) {
-            formatStr = builder.CreateGlobalString("%s\n", "format");
+            if (exprType == VarType::LONG || exprType == VarType::UNKNOWN) {
+                formatPtr = builder.CreateGlobalStringPtr("%lld\n", "format");
+                printArg = builder.CreatePtrToInt(arg, builder.getInt64Ty(), "ptrtolong");
+            } else if (exprType == VarType::INT) {
+                formatPtr = builder.CreateGlobalStringPtr("%d\n", "format");
+                printArg = builder.CreatePtrToInt(arg, builder.getInt32Ty(), "ptrtoint");
+            } else if (exprType == VarType::BOOL) {
+                formatPtr = builder.CreateGlobalStringPtr("%d\n", "format");
+                printArg = builder.CreatePtrToInt(arg, builder.getInt32Ty(), "ptrtobool");
+            } else if (exprType == VarType::FLOAT) {
+                formatPtr = builder.CreateGlobalStringPtr("%f\n", "format");
+                printArg = builder.CreatePtrToInt(arg, builder.getInt64Ty(), "ptrtofloat");
+                printArg = builder.CreateSIToFP(printArg, builder.getDoubleTy(), "inttofp");
+            } else {
+                formatPtr = builder.CreateGlobalStringPtr("%s\n", "format");
+            }
         } else {
-            formatStr = builder.CreateGlobalString("%d\n", "format");
+            formatPtr = builder.CreateGlobalStringPtr("%d\n", "format");
         }
-        llvm::Value* formatPtr = builder.CreateBitCast(formatStr, builder.getInt8Ty()->getPointerTo(), "fmtcast");
+        
         return builder.CreateCall(printfFunc->getFunctionType(), printfFunc, {formatPtr, printArg}, "printfcall");
     }
     
@@ -977,7 +1188,10 @@ llvm::Value* LLVMCodegen::codegen(ReturnStatement* stmt) {
     } else if (value->getType()->isIntegerTy(32)) {
         value = builder.CreateSExt(value, retType, "retint");
     } else if (value->getType()->isFloatTy()) {
-        value = builder.CreateFPToSI(value, retType, "retfloat");
+        value = builder.CreateFPExt(value, builder.getDoubleTy(), "float.ext");
+        value = builder.CreateBitCast(value, retType, "float.bits");
+    } else if (value->getType()->isDoubleTy()) {
+        value = builder.CreateBitCast(value, retType, "double.bits");
     }
     
     builder.CreateRet(value);
@@ -1269,7 +1483,131 @@ llvm::Value* LLVMCodegen::codegen(ForInStatement* stmt) {
     return nullptr;
 }
 
+VarType LLVMCodegen::getExpressionType(Expression* expr) {
+    if (auto* strLit = dynamic_cast<StringLiteral*>(expr)) {
+        return VarType::STRING;
+    } else if (auto* numLit = dynamic_cast<NumberLiteral*>(expr)) {
+        constexpr int64_t INT32_MAX_VAL = 2147483647LL;
+        if (numLit->value > INT32_MAX_VAL || numLit->value < -INT32_MAX_VAL - 1) {
+            return VarType::LONG;
+        }
+        return VarType::INT;
+    } else if (auto* floatLit = dynamic_cast<FloatLiteral*>(expr)) {
+        return VarType::FLOAT;
+    } else if (auto* boolLit = dynamic_cast<BooleanLiteral*>(expr)) {
+        return VarType::BOOL;
+    } else if (auto* varExpr = dynamic_cast<VariableExpression*>(expr)) {
+        auto typeIt = localTypes.find(varExpr->name);
+        if (typeIt != localTypes.end()) {
+            return typeIt->second;
+        }
+    } else if (auto* callExpr = dynamic_cast<CallExpression*>(expr)) {
+        return VarType::UNKNOWN;
+    } else if (auto* binOp = dynamic_cast<BinaryOp*>(expr)) {
+        VarType leftType = getExpressionType(binOp->left.get());
+        VarType rightType = getExpressionType(binOp->right.get());
+        if (leftType == VarType::STRING || rightType == VarType::STRING) {
+            return VarType::STRING;
+        }
+        if (leftType == VarType::FLOAT || rightType == VarType::FLOAT) {
+            return VarType::FLOAT;
+        }
+        if (leftType == VarType::LONG || rightType == VarType::LONG) {
+            return VarType::LONG;
+        }
+        return VarType::INT;
+    }
+    return VarType::UNKNOWN;
+}
+
+void LLVMCodegen::collectCallArgTypes(Expression* expr) {
+    if (auto* callExpr = dynamic_cast<CallExpression*>(expr)) {
+        std::string funcName = callExpr->ns.empty() ? callExpr->name : (callExpr->ns + ":" + callExpr->name);
+        std::vector<VarType> argTypes;
+        for (auto& arg : callExpr->args) {
+            argTypes.push_back(getExpressionType(arg.get()));
+            collectCallArgTypes(arg.get());
+        }
+        callArgTypes[funcName] = argTypes;
+    } else if (auto* binOp = dynamic_cast<BinaryOp*>(expr)) {
+        collectCallArgTypes(binOp->left.get());
+        collectCallArgTypes(binOp->right.get());
+    } else if (auto* unaryOp = dynamic_cast<UnaryOp*>(expr)) {
+        collectCallArgTypes(unaryOp->expr.get());
+    } else if (auto* arrLit = dynamic_cast<ArrayLiteral*>(expr)) {
+        for (auto& elem : arrLit->elements) {
+            collectCallArgTypes(elem.get());
+        }
+    } else if (auto* arrIdx = dynamic_cast<ArrayIndexExpression*>(expr)) {
+        collectCallArgTypes(arrIdx->array.get());
+        collectCallArgTypes(arrIdx->index.get());
+    } else if (auto* arrRange = dynamic_cast<ArrayRangeExpression*>(expr)) {
+        if (arrRange->array) {
+            collectCallArgTypes(arrRange->array.get());
+        }
+        collectCallArgTypes(arrRange->start.get());
+        collectCallArgTypes(arrRange->end.get());
+    }
+}
+
+void LLVMCodegen::collectCallArgTypes(Statement* stmt) {
+    if (auto* exprStmt = dynamic_cast<ExpressionStatement*>(stmt)) {
+        collectCallArgTypes(exprStmt->expr.get());
+    } else if (auto* assignStmt = dynamic_cast<AssignmentStatement*>(stmt)) {
+        collectCallArgTypes(assignStmt->value.get());
+    } else if (auto* printStmt = dynamic_cast<PrintStatement*>(stmt)) {
+        collectCallArgTypes(printStmt->expr.get());
+    } else if (auto* returnStmt = dynamic_cast<ReturnStatement*>(stmt)) {
+        collectCallArgTypes(returnStmt->value.get());
+    } else if (auto* blockStmt = dynamic_cast<BlockStatement*>(stmt)) {
+        for (auto& s : blockStmt->statements) {
+            collectCallArgTypes(s.get());
+        }
+    } else if (auto* ifStmt = dynamic_cast<IfStatement*>(stmt)) {
+        collectCallArgTypes(ifStmt->condition.get());
+        collectCallArgTypes(ifStmt->thenBranch.get());
+        if (ifStmt->elseBranch) {
+            collectCallArgTypes(ifStmt->elseBranch.get());
+        }
+        for (auto& elseIf : ifStmt->elseIfBranches) {
+            collectCallArgTypes(elseIf.first.get());
+            collectCallArgTypes(elseIf.second.get());
+        }
+    } else if (auto* whileStmt = dynamic_cast<WhileStatement*>(stmt)) {
+        collectCallArgTypes(whileStmt->condition.get());
+        collectCallArgTypes(whileStmt->body.get());
+    } else if (auto* forInStmt = dynamic_cast<ForInStatement*>(stmt)) {
+        collectCallArgTypes(forInStmt->iterable.get());
+        collectCallArgTypes(forInStmt->body.get());
+    }
+}
+
+void LLVMCodegen::collectCallArgTypes(Program* program) {
+    for (auto& mod : program->modules) {
+        for (auto& func : mod->functions) {
+            bool isMain = (func->name == "main");
+            std::string funcName = isMain ? func->name : (func->ns.empty() ? func->name : (func->ns + ":" + func->name));
+            
+            if (func->body) {
+                collectCallArgTypes(func->body.get());
+                
+                if (auto* blockStmt = dynamic_cast<BlockStatement*>(func->body.get())) {
+                    for (auto& stmt : blockStmt->statements) {
+                        if (auto* returnStmt = dynamic_cast<ReturnStatement*>(stmt.get())) {
+                            VarType retType = getExpressionType(returnStmt->value.get());
+                            funcReturnTypes[funcName] = retType;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 bool LLVMCodegen::codegenProgram(Program* program) {
+    collectCallArgTypes(program);
+    
     for (auto& imp : program->imports) {
         if (!codegen(imp.get())) {
             return false;
@@ -1280,7 +1618,7 @@ bool LLVMCodegen::codegenProgram(Program* program) {
         for (auto& func : mod->functions) {
             std::vector<llvm::Type*> paramTypes;
             for (size_t i = 0; i < func->params.size(); i++) {
-                paramTypes.push_back(llvm::Type::getInt32Ty(context));
+                paramTypes.push_back(builder.getPtrTy());
             }
             
             bool isMain = (func->name == "main");
@@ -1334,7 +1672,7 @@ bool LLVMCodegen::codegen(Function* func) {
     if (!llvmFunc) {
         std::vector<llvm::Type*> paramTypes;
         for (size_t i = 0; i < func->params.size(); i++) {
-            paramTypes.push_back(llvm::Type::getInt32Ty(context));
+            paramTypes.push_back(builder.getPtrTy());
         }
         
         llvm::FunctionType* funcType = llvm::FunctionType::get(llvm::Type::getInt64Ty(context), paramTypes, false);
@@ -1349,6 +1687,15 @@ bool LLVMCodegen::codegen(Function* func) {
     if (llvmFunc->empty()) {
         llvm::BasicBlock* entryBB = llvm::BasicBlock::Create(context, "entry", llvmFunc);
         builder.SetInsertPoint(entryBB);
+        
+        if (isMain) {
+            llvm::Function* setvbufFunc = module->getFunction("setvbuf");
+            if (setvbufFunc) {
+                llvm::Value* stdoutPtr = builder.CreateCall(module->getFunction("__acrt_iob_func"), {builder.getInt32(1)}, "stdout");
+                llvm::Value* nullBuf = llvm::ConstantPointerNull::get(builder.getInt8Ty()->getPointerTo());
+                builder.CreateCall(setvbufFunc, {stdoutPtr, nullBuf, builder.getInt32(4), builder.getInt64(0)});
+            }
+        }
         
         if (isMain && usesRandomBuiltin) {
             llvm::Function* timeFunc = module->getFunction("time");
@@ -1367,11 +1714,18 @@ bool LLVMCodegen::codegen(Function* func) {
         }
         
         size_t i = 0;
+        auto argTypesIt = callArgTypes.find(funcName);
         for (auto& arg : llvmFunc->args()) {
             std::string paramName = func->params[i]->name;
-            llvm::AllocaInst* alloca = builder.CreateAlloca(llvm::Type::getInt32Ty(context), nullptr, paramName.c_str());
+            llvm::AllocaInst* alloca = builder.CreateAlloca(builder.getPtrTy(), nullptr, paramName.c_str());
             builder.CreateStore(&arg, alloca);
             locals[paramName] = alloca;
+            
+            VarType paramType = VarType::UNKNOWN;
+            if (argTypesIt != callArgTypes.end() && i < argTypesIt->second.size()) {
+                paramType = argTypesIt->second[i];
+            }
+            localTypes[paramName] = paramType;
             i++;
         }
         
@@ -1409,6 +1763,7 @@ bool LLVMCodegen::codegen(Statement* stmt) {
     if (dynamic_cast<ButtonStatement*>(stmt)) return codegen(dynamic_cast<ButtonStatement*>(stmt)) != nullptr;
     if (dynamic_cast<TextStatement*>(stmt)) return codegen(dynamic_cast<TextStatement*>(stmt)) != nullptr;
     if (dynamic_cast<BoxStatement*>(stmt)) return codegen(dynamic_cast<BoxStatement*>(stmt)) != nullptr;
+    if (dynamic_cast<InputStatement*>(stmt)) return codegen(dynamic_cast<InputStatement*>(stmt)) != nullptr;
     if (dynamic_cast<ImportStatement*>(stmt)) return codegen(dynamic_cast<ImportStatement*>(stmt));
     if (auto* funcDecl = dynamic_cast<FunctionDeclarationStatement*>(stmt)) {
         if (funcDecl->func) {
@@ -1836,6 +2191,36 @@ llvm::Value* LLVMCodegen::codegen(WindowStatement* windowStmt) {
             });
     }
 
+    llvm::Function* drawInputFunc = module->getFunction("xr_draw_input");
+    for (size_t i = 0; i < windowStmt->inputs.size(); ++i) {
+        const auto& input = windowStmt->inputs[i];
+        llvm::Value* inputIdPtr = builder.CreateGlobalStringPtr(
+            input->id,
+            "xr_window_input_id_" + std::to_string(windowId) + "_" + std::to_string(i));
+        llvm::Value* inputVarPtr = builder.CreateGlobalStringPtr(
+            input->varName,
+            "xr_window_input_var_" + std::to_string(windowId) + "_" + std::to_string(i));
+        llvm::Value* inputTextPtr = builder.CreateCall(
+            drawInputFunc,
+            {
+                builder.getInt32(input->x),
+                builder.getInt32(input->y),
+                builder.getInt32(input->width),
+                builder.getInt32(input->height),
+                inputIdPtr,
+                inputVarPtr
+            });
+        if (!input->varName.empty()) {
+            llvm::AllocaInst* inputStorage = builder.CreateAlloca(
+                llvm::PointerType::get(context, 0),
+                nullptr,
+                "input_storage_" + input->varName);
+            builder.CreateStore(inputTextPtr, inputStorage);
+            locals[input->varName] = inputStorage;
+            localTypes[input->varName] = VarType::STRING;
+        }
+    }
+
     builder.CreateCall(endFrameFunc, {});
     builder.CreateBr(loopCondBB);
 
@@ -1855,6 +2240,11 @@ llvm::Value* LLVMCodegen::codegen(TextStatement* stmt) {
 
 llvm::Value* LLVMCodegen::codegen(BoxStatement* stmt) {
     addError("box blocks can only appear inside window blocks");
+    return nullptr;
+}
+
+llvm::Value* LLVMCodegen::codegen(InputStatement* stmt) {
+    addError("input blocks can only appear inside window blocks");
     return nullptr;
 }
 

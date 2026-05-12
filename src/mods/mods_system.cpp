@@ -1014,6 +1014,8 @@ bool ModsSystem::loadModFromContent(const std::string& content) {
     }
     
     auto blocks = parser.getBlocks();
+    size_t previousBlockCount = loadedBlocks.size();
+    
     for (auto& block : blocks) {
         for (auto& mod : block.modifications) {
             mod.modName = currentModName;
@@ -1026,7 +1028,7 @@ bool ModsSystem::loadModFromContent(const std::string& content) {
         loadedBlocks.push_back(std::move(block));
     }
     
-    if (!checkForConflicts()) {
+    if (!checkForConflicts(previousBlockCount)) {
         return false;
     }
     
@@ -1036,8 +1038,9 @@ bool ModsSystem::loadModFromContent(const std::string& content) {
     return true;
 }
 
-bool ModsSystem::checkForConflicts() {
-    for (const auto& block : loadedBlocks) {
+bool ModsSystem::checkForConflicts(size_t startBlockIndex) {
+    for (size_t i = startBlockIndex; i < loadedBlocks.size(); i++) {
+        const auto& block = loadedBlocks[i];
         for (const auto& mod : block.modifications) {
             if (!checkModificationConflict(mod)) {
                 return false;

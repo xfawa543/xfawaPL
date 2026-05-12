@@ -26,6 +26,8 @@ private:
     std::map<std::string, llvm::AllocaInst*> locals;
     std::map<std::string, VarType> localTypes;
     std::map<std::string, int64_t> arrayLengths;
+    std::map<std::string, std::vector<VarType>> callArgTypes;
+    std::map<std::string, VarType> funcReturnTypes;
     std::vector<std::string> errors;
     std::vector<std::string> warnings;
     bool hasMainFunction;
@@ -68,6 +70,11 @@ private:
     llvm::Type* getLLVMType(VarType type);
     llvm::Type* getArrayElementType(VarType type);
     
+    void collectCallArgTypes(Program* program);
+    void collectCallArgTypes(Statement* stmt);
+    void collectCallArgTypes(Expression* expr);
+    VarType getExpressionType(Expression* expr);
+    
     llvm::Value* codegen(Expression* expr);
     bool codegen(Statement* stmt);
     bool codegen(Module* mod);
@@ -104,6 +111,7 @@ private:
     llvm::Value* codegen(ButtonStatement* stmt);
     llvm::Value* codegen(TextStatement* stmt);
     llvm::Value* codegen(BoxStatement* stmt);
+    llvm::Value* codegen(InputStatement* stmt);
 };
 
 }

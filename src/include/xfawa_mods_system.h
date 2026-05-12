@@ -303,7 +303,7 @@ public:
 private:
     void collectModifications();
     void registerSyntaxes();
-    bool checkForConflicts();
+    bool checkForConflicts(size_t startBlockIndex = 0);
     bool checkModificationConflict(const SyntaxModification& mod);
     bool checkSyntaxConflict(const AddedSyntax& syntax);
     std::string expandSingleSyntax(const AddedSyntax& syntax, const std::string& matchedContent,

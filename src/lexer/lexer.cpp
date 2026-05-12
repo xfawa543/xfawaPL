@@ -26,7 +26,10 @@ const std::vector<std::pair<std::string, TokenType>> Lexer::keywords = {
     {"bool", TokenType::KEYWORD_BOOL},
     {"string", TokenType::KEYWORD_STRING},
     {"for", TokenType::KEYWORD_FOR},
-    {"window", TokenType::KEYWORD_WINDOW}
+    {"window", TokenType::KEYWORD_WINDOW},
+    {"input", TokenType::KEYWORD_INPUT},
+    {"and", TokenType::KEYWORD_AND},
+    {"or", TokenType::KEYWORD_OR}
 };
 
 const std::vector<std::pair<std::string, TokenType>> Lexer::punctuatuators = {
@@ -84,6 +87,9 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::KEYWORD_STRING: return "string";
         case TokenType::KEYWORD_FOR: return "for";
         case TokenType::KEYWORD_WINDOW: return "window";
+        case TokenType::KEYWORD_INPUT: return "input";
+        case TokenType::KEYWORD_AND: return "and";
+        case TokenType::KEYWORD_OR: return "or";
         case TokenType::PUNCTUATOR_LPAREN: return "(";
         case TokenType::PUNCTUATOR_RPAREN: return ")";
         case TokenType::PUNCTUATOR_LBRACE: return "{";
