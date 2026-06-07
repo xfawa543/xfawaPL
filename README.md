@@ -2,7 +2,7 @@
 
 xfawa is an experimental compiled programming language currently under active development.
 
-The project explores new approaches to language structure, extensibility, and AI-friendly programming workflows.
+The project explores new approaches to language structure, extensibility, and compiler architecture.
 
 ---
 
@@ -12,7 +12,6 @@ xfawa aims to explore:
 
 - Block-first language design
 - Readable and structured syntax
-- AI-friendly code generation
 - Native code compilation through LLVM
 - Language extensibility and experimentation
 
@@ -46,14 +45,6 @@ Source code is translated into native machine code through LLVM rather than exec
 
 ---
 
-AI-Friendly Syntax
-
-The language emphasizes structured and predictable syntax.
-
-The goal is to make code easier to read, generate, and understand for both developers and AI-assisted tools.
-
----
-
 Experimental Mods System
 
 xfawa includes an experimental mods system that allows source transformations during compilation.
@@ -65,7 +56,7 @@ Possible use cases include:
 - Compiler extensions
 - Custom code transformations
 
-The mods system is under active research and may evolve significantly in future versions.
+The mods system is experimental and may evolve significantly in future versions.
 
 ---
 
