@@ -1,4 +1,4 @@
-# xfawa Programming Language
+## xfawa Programming Language
 
 xfawa 是一门处于活跃开发中的实验性编译型编程语言。
 
