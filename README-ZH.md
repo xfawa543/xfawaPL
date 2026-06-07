@@ -27,12 +27,13 @@ xfawa 旨在探索：
 块是 xfawa 中的基础结构。
 
 示例：
-
+```xfawa
 #application {
     fn main() {
         print("Hello World")
     }
 }
+```
 
 与传统语言主要将块用于作用域控制不同，xfawa 探索将块作为语言的核心组织架构。
 
