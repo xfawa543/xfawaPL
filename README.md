@@ -1,107 +1,135 @@
-# xfawa Programming Language
+xfawa Programming Language
 
-xfawa is an experimental compiled programming language project currently under development, aiming to explore:
+xfawa is an experimental compiled programming language currently under active development.
 
-- A flexible and extensible syntax design  
-- High performance execution (based on LLVM)  
-- Extensible syntax system (mods)  
-- Lightweight runtime design  
-
-The project is still in early alpha stage.
+The project explores new approaches to language structure, extensibility, and AI-friendly programming workflows.
 
 ---
 
-## 🚀 Project Goals
+🚀 Project Vision
 
-xfawa is NOT a scripting language. It is a compiled programming language experiment.
+xfawa aims to explore:
 
-### 1. Compiled Language Design
-xfawa is designed as a compiled language, where source code is translated into native machine code instead of being interpreted.
+- Block-first language design
+- Readable and structured syntax
+- AI-friendly code generation
+- Native code compilation through LLVM
+- Language extensibility and experimentation
 
-### 2. Syntax Exploration
-xfawa aims to design a readable and flexible syntax, not bound to any existing language model.
-
-### 3. High Performance Execution
-Compile xfawa into native machine code using LLVM backend.
-
-### 4. mods System (Core Feature)
-The mods system allows syntax-level transformations before compilation.
-
-It enables:
-
-- Syntax extension  
-- Experimental language features  
-- Custom syntax behavior  
-
-### 5. Lightweight Runtime
-Minimize external dependencies by integrating standard library into the compiler distribution when possible.
+The language is currently in the Alpha stage and may undergo significant changes.
 
 ---
 
-## 🧪 Syntax Examples
+✨ Features
 
-These examples represent current design ideas and may change in the future.
+Block-First Design
 
----
+Blocks are a fundamental structure in xfawa.
 
-## 🧩 mods System
+Example:
 
-mods is a core mechanism of xfawa, used to transform source code at early compilation stage.
+#application {
+    fn main() {
+        print("Hello World")
+    }
+}
 
-It enables:
-
-- Syntax extensions  
-- Syntax sugar implementation  
-- Experimental language features  
-
-Design goal:
-
-> Extend the language without modifying the compiler core.
+Unlike traditional languages where blocks are primarily used for scope control, xfawa explores blocks as a core organizational structure of the language.
 
 ---
 
-## 📦 Dependencies
+Compiled Language
 
-xfawa currently depends on:
+xfawa is designed as a compiled language.
 
-- LLVM  
-- System toolchain (Windows sdk)  
-
-Note:
-The project aims to reduce unnecessary dependencies but does not avoid system-level toolchains.
+Source code is translated into native machine code through LLVM rather than executed by an interpreter.
 
 ---
 
-## 👤 Founder’s Note
+AI-Friendly Syntax
 
-xfawa started as a compiler experiment rather than a fully defined language design.
+The language emphasizes structured and predictable syntax.
 
-The mods system gradually emerged during development rather than being fully designed from the beginning.
-
-The project is still in a very early stage and may evolve significantly over time. However, one core idea remains:
-
-> A programming language should be compiled and extensible, not a fixed set of rules.
+The goal is to make code easier to read, generate, and understand for both developers and AI-assisted tools.
 
 ---
 
-## ⚠️ About Implementation
+Experimental Mods System
 
-Some parts of this project were developed with the assistance of AI tools.
+xfawa includes an experimental mods system that allows source transformations during compilation.
 
-However, the overall architecture, design decisions, and direction are determined by the author.
+Possible use cases include:
 
----
+- Syntax extensions
+- Language experiments
+- Compiler extensions
+- Custom code transformations
 
-## 📌 Current Status
-
-- Early alpha  
-- Compiled language  
-- Syntax system under active development  
-- mods system evolving  
-- IR and backend under iteration  
+The mods system is under active research and may evolve significantly in future versions.
 
 ---
 
-## 📜 License
+🧪 Current Status
 
-MIT Licensed - see [LICENSE](LICENSE) for details.
+Current development focuses on:
+
+- Compiler infrastructure
+- Syntax design
+- Block architecture
+- AST architecture
+- LLVM backend integration
+- Error reporting improvements
+
+Project status:
+
+- Alpha stage
+- Active development
+- Breaking changes may occur
+
+---
+
+📦 Dependencies
+
+Current dependencies:
+
+- LLVM
+- System toolchain (Windows SDK)
+
+xfawa does not aim to avoid practical system dependencies when they provide a better development experience.
+
+---
+
+👤 Founder's Note
+
+xfawa started as a personal compiler experiment and gradually evolved into a programming language project.
+
+The language is still evolving, and many ideas are actively being tested and refined.
+
+Rather than following existing language conventions, xfawa focuses on exploring new approaches to language structure and extensibility.
+
+---
+
+⚠️ About AI Assistance
+
+Some implementation work is assisted by AI tools.
+
+However, the project's architecture, language design, feature decisions, and long-term direction are determined by the author.
+
+---
+
+📌 Current Status Summary
+
+- Experimental programming language
+- Compiled language
+- LLVM backend
+- Block-first language design
+- Experimental mods system
+- Active Alpha development
+
+---
+
+📜 License
+
+MIT License.
+
+See LICENSE for details.
