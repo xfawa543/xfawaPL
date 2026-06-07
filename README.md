@@ -1,4 +1,4 @@
-xfawa Programming Language
+## xfawa Programming Language
 
 xfawa is an experimental compiled programming language currently under active development.
 
