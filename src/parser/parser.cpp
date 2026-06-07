@@ -1126,6 +1126,23 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         return parseArrayLiteral();
     }
     
+    if (consume(TokenType::KEYWORD_INPUT)) {
+        SourceLocation loc = peek(-1).location;
+        
+        if (!consume(TokenType::PUNCTUATOR_LPAREN)) {
+            addError("Expected '(' after 'input'");
+            return nullptr;
+        }
+        
+        if (!consume(TokenType::PUNCTUATOR_RPAREN)) {
+            addError("Expected ')' after 'input('");
+            return nullptr;
+        }
+        
+        std::vector<std::unique_ptr<Expression>> args;
+        return std::make_unique<CallExpression>("input", std::move(args), loc);
+    }
+    
     if (consume(TokenType::PUNCTUATOR_LPAREN)) {
         auto expr = parseExpression();
         if (!consume(TokenType::PUNCTUATOR_RPAREN)) {

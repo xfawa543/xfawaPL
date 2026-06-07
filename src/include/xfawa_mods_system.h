@@ -149,6 +149,22 @@ struct PublicFunction {
     PublicFunction() : line(0) {}
 };
 
+struct ModMetaInfo {
+    std::string author;
+    std::string version;
+    std::string description;
+    std::string license;
+    int line;
+    bool hasMeta;
+    
+    ModMetaInfo() : line(0), hasMeta(false) {}
+    
+    void setAuthor(const std::string& a) { author = a; hasMeta = true; }
+    void setVersion(const std::string& v) { version = v; hasMeta = true; }
+    void setDescription(const std::string& d) { description = d; hasMeta = true; }
+    void setLicense(const std::string& l) { license = l; hasMeta = true; }
+};
+
 struct ModBlock {
     std::string name;
     std::vector<SyntaxModification> modifications;
@@ -226,12 +242,14 @@ private:
     size_t current;
     std::vector<std::string> errors;
     std::vector<ModBlock> blocks;
+    ModMetaInfo metaInfo;
     
 public:
     explicit ModParser(const std::vector<ModToken>& toks);
     
     bool parse();
     const std::vector<ModBlock>& getBlocks() const { return blocks; }
+    const ModMetaInfo& getMetaInfo() const { return metaInfo; }
     
     bool hasErrors() const { return !errors.empty(); }
     const std::vector<std::string>& getErrors() const { return errors; }
@@ -246,6 +264,7 @@ private:
     void addError(const std::string& message);
     
     bool parseBlock();
+    bool parseMetaBlock();
     bool parseBlockContent(ModBlock& block);
     bool parseFunction(ModBlock& block);
     bool parseNestedPublicFunction(PublicFunction& pubFunc);
@@ -273,6 +292,7 @@ private:
     int totalAddedSyntaxCount;
     int currentLoadOrder;
     std::string currentModName;
+    ModMetaInfo globalMeta;
     
 public:
     ModsSystem() : totalAddedSyntaxCount(0), currentLoadOrder(0) {}
@@ -288,12 +308,14 @@ public:
     bool hasAddedSyntaxes() const { return !allAddedSyntaxes.empty(); }
     bool hasPublicFunctions() const { return !allPublicFunctions.empty(); }
     bool hasConflicts() const { return !conflicts.empty(); }
+    bool hasMetaInfo() const { return globalMeta.hasMeta; }
     
     const std::vector<SyntaxModification>& getModifications() const { return allModifications; }
     const std::vector<AddedSyntax>& getAddedSyntaxes() const { return allAddedSyntaxes; }
     const std::vector<PublicFunction>& getPublicFunctions() const { return allPublicFunctions; }
     const std::unordered_set<std::string>& getInternalFunctionNames() const { return allInternalFunctionNames; }
     const std::vector<ConflictInfo>& getConflicts() const { return conflicts; }
+    const ModMetaInfo& getMetaInfo() const { return globalMeta; }
     
     bool hasErrors() const { return !errors.empty(); }
     const std::vector<std::string>& getErrors() const { return errors; }

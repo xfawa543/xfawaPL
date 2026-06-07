@@ -242,6 +242,15 @@ private:
             return true;
         }
         
+        if (call->name == "input") {
+            if (call->args.size() != 0) {
+                errors.push_back("input() takes no arguments at line " + 
+                    std::to_string(call->location.line));
+                return false;
+            }
+            return true;
+        }
+        
         if (!call->ns.empty()) {
             if (NamespacePolicy::isReserved(call->ns)) {
                 errors.push_back(NamespacePolicy::getReservedNamespacesError(call->ns) + 

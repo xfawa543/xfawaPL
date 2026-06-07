@@ -28,6 +28,8 @@ private:
     std::map<std::string, int64_t> arrayLengths;
     std::map<std::string, std::vector<VarType>> callArgTypes;
     std::map<std::string, VarType> funcReturnTypes;
+    std::map<std::string, llvm::GlobalVariable*> windowInputGlobals;
+    std::map<std::string, VarType> windowInputTypes;
     std::vector<std::string> errors;
     std::vector<std::string> warnings;
     bool hasMainFunction;

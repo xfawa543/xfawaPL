@@ -86,6 +86,7 @@ std::string Token::toString() const {
         case TokenType::KEYWORD_STRING: typeStr = "string"; break;
         case TokenType::KEYWORD_FOR: typeStr = "for"; break;
         case TokenType::KEYWORD_WINDOW: typeStr = "window"; break;
+        case TokenType::KEYWORD_INPUT: typeStr = "input"; break;
         case TokenType::PUNCTUATOR_LPAREN: typeStr = "("; break;
         case TokenType::PUNCTUATOR_RPAREN: typeStr = ")"; break;
         case TokenType::PUNCTUATOR_LBRACE: typeStr = "{"; break;

@@ -44,7 +44,7 @@ namespace xfawa {
     int g_debug_global = 0;
 }
 
-const char* COMPILER_VERSION = "1.0.0-a.15";
+const char* COMPILER_VERSION = "1.0.0-a.16";
 const char* MODS_KERNEL_VERSION = "mods-a-1.0.3";
 
 static xfawa::LogLanguage g_log_language = xfawa::LogLanguage::EN;

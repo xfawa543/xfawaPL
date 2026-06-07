@@ -195,6 +195,11 @@ void LLVMCodegen::initBuiltins() {
 
     llvm::FunctionType* mallocType = llvm::FunctionType::get(ptrTy, {builder.getInt64Ty()}, false);
     declareFunction("malloc", mallocType);
+    
+    declareFunction("strtod", llvm::FunctionType::get(builder.getDoubleTy(), {ptrTy, ptrTy->getPointerTo()}, false));
+    declareFunction("strtof", llvm::FunctionType::get(builder.getFloatTy(), {ptrTy, ptrTy->getPointerTo()}, false));
+    declareFunction("strtol", llvm::FunctionType::get(builder.getInt64Ty(), {ptrTy, ptrTy->getPointerTo(), builder.getInt32Ty()}, false));
+    declareFunction("strtoll", llvm::FunctionType::get(builder.getInt64Ty(), {ptrTy, ptrTy->getPointerTo(), builder.getInt32Ty()}, false));
 
     llvm::FunctionType* randType = llvm::FunctionType::get(builder.getInt32Ty(), false);
     declareFunction("rand", randType);
@@ -355,6 +360,12 @@ llvm::Value* LLVMCodegen::codegen(VariableExpression* expr) {
         llvm::AllocaInst* alloca = it->second;
         return builder.CreateLoad(alloca->getAllocatedType(), alloca, expr->name.c_str());
     }
+    
+    auto globalIt = windowInputGlobals.find(expr->name);
+    if (globalIt != windowInputGlobals.end()) {
+        return builder.CreateLoad(globalIt->second->getValueType(), globalIt->second, expr->name.c_str());
+    }
+    
     addError("Undefined variable: " + expr->name);
     return nullptr;
 }
@@ -386,6 +397,86 @@ llvm::Value* LLVMCodegen::codegen(BinaryOp* expr) {
     bool isFloatOp = leftType->isFloatTy() || rightType->isFloatTy();
     bool isLongOp = leftType->isIntegerTy(64) || rightType->isIntegerTy(64);
     bool isPtrOp = leftType->isPointerTy() && rightType->isPointerTy();
+    
+    bool leftIsPtr = leftType->isPointerTy();
+    bool rightIsPtr = rightType->isPointerTy();
+    bool leftIsNum = leftType->isIntegerTy() || leftType->isFloatTy();
+    bool rightIsNum = rightType->isIntegerTy() || rightType->isFloatTy();
+    
+    if (expr->op == BinaryOpType::ADD && ((leftIsPtr && rightIsNum) || (leftIsNum && rightIsPtr))) {
+        auto convertNumToStr = [this](llvm::Value* numVal, llvm::Type* numType) -> llvm::Value* {
+            llvm::Function* mallocFunc = module->getFunction("malloc");
+            if (!mallocFunc) {
+                llvm::FunctionType* mallocType = llvm::FunctionType::get(
+                    builder.getInt8Ty()->getPointerTo(),
+                    {builder.getInt64Ty()},
+                    false);
+                mallocFunc = llvm::Function::Create(mallocType, llvm::Function::ExternalLinkage, 0, "malloc", module);
+            }
+            
+            llvm::Value* buffer = builder.CreateCall(mallocFunc, {builder.getInt64(64)}, "num_str_buf");
+            
+            llvm::Function* sprintfFunc = module->getFunction("sprintf");
+            if (!sprintfFunc) {
+                llvm::FunctionType* sprintfType = llvm::FunctionType::get(
+                    builder.getInt32Ty(),
+                    {builder.getInt8Ty()->getPointerTo(), builder.getInt8Ty()->getPointerTo()},
+                    true);
+                sprintfFunc = llvm::Function::Create(sprintfType, llvm::Function::ExternalLinkage, 0, "sprintf", module);
+            }
+            
+            llvm::Value* formatStr = nullptr;
+            llvm::Value* valToPrint = numVal;
+            if (numType->isFloatTy()) {
+                formatStr = builder.CreateGlobalStringPtr("%g", "float_fmt");
+                valToPrint = builder.CreateFPExt(numVal, builder.getDoubleTy(), "float_to_double");
+            } else if (numType->isIntegerTy(64)) {
+                formatStr = builder.CreateGlobalStringPtr("%lld", "long_fmt");
+            } else {
+                formatStr = builder.CreateGlobalStringPtr("%d", "int_fmt");
+            }
+            
+            builder.CreateCall(sprintfFunc, {buffer, formatStr, valToPrint}, "sprintf_num");
+            return buffer;
+        };
+        
+        if (leftIsPtr && rightIsNum) {
+            rightVal = convertNumToStr(rightVal, rightType);
+        } else {
+            leftVal = convertNumToStr(leftVal, leftType);
+        }
+        
+        llvm::Function* strlenFunc = module->getFunction("strlen");
+        if (!strlenFunc) {
+            llvm::FunctionType* strlenType = llvm::FunctionType::get(builder.getInt64Ty(), {builder.getPtrTy()}, false);
+            strlenFunc = llvm::Function::Create(strlenType, llvm::Function::ExternalLinkage, 0, "strlen", module);
+        }
+        
+        llvm::Value* leftLen = builder.CreateCall(strlenFunc, {leftVal}, "left.len");
+        llvm::Value* rightLen = builder.CreateCall(strlenFunc, {rightVal}, "right.len");
+        
+        llvm::Value* totalLen = builder.CreateAdd(leftLen, rightLen, "total.len");
+        llvm::Value* totalLenPlus1 = builder.CreateAdd(totalLen, createConstInt(context, builder.getInt64Ty(), 1), "total.len.plus1");
+        
+        llvm::Function* mallocFunc = module->getFunction("malloc");
+        llvm::Value* resultPtr = builder.CreateCall(mallocFunc, {totalLenPlus1}, "concat.alloc");
+        
+        llvm::Function* strcpyFunc = module->getFunction("strcpy");
+        if (!strcpyFunc) {
+            llvm::FunctionType* strcpyType = llvm::FunctionType::get(builder.getPtrTy(), {builder.getPtrTy(), builder.getPtrTy()}, false);
+            strcpyFunc = llvm::Function::Create(strcpyType, llvm::Function::ExternalLinkage, 0, "strcpy", module);
+        }
+        builder.CreateCall(strcpyFunc, {resultPtr, leftVal}, "strcpy.left");
+        
+        llvm::Function* strcatFunc = module->getFunction("strcat");
+        if (!strcatFunc) {
+            llvm::FunctionType* strcatType = llvm::FunctionType::get(builder.getPtrTy(), {builder.getPtrTy(), builder.getPtrTy()}, false);
+            strcatFunc = llvm::Function::Create(strcatType, llvm::Function::ExternalLinkage, 0, "strcat", module);
+        }
+        builder.CreateCall(strcatFunc, {resultPtr, rightVal}, "strcat.right");
+        
+        return resultPtr;
+    }
     
     if (isPtrOp && expr->op == BinaryOpType::ADD) {
         llvm::Function* strlenFunc = module->getFunction("strlen");
@@ -551,6 +642,79 @@ llvm::Value* LLVMCodegen::codegen(CallExpression* expr) {
             addError("rnd() requires 1 (array) or 2 (min, max) arguments");
             return nullptr;
         }
+    }
+    
+    if (expr->name == "input") {
+        llvm::Function* fgetsFunc = module->getFunction("fgets");
+        if (!fgetsFunc) {
+            llvm::FunctionType* fgetsType = llvm::FunctionType::get(
+                builder.getInt8Ty()->getPointerTo(),
+                {builder.getInt8Ty()->getPointerTo(), builder.getInt32Ty(), builder.getInt8Ty()->getPointerTo()},
+                false);
+            fgetsFunc = llvm::Function::Create(fgetsType, llvm::Function::ExternalLinkage, 0, "fgets", module);
+        }
+        
+        llvm::Function* stdinFunc = module->getFunction("__acrt_iob_func");
+        if (!stdinFunc) {
+            llvm::FunctionType* stdinType = llvm::FunctionType::get(
+                builder.getInt8Ty()->getPointerTo(),
+                {builder.getInt32Ty()},
+                false);
+            stdinFunc = llvm::Function::Create(stdinType, llvm::Function::ExternalLinkage, 0, "__acrt_iob_func", module);
+        }
+        
+        llvm::Function* mallocFunc = module->getFunction("malloc");
+        if (!mallocFunc) {
+            llvm::FunctionType* mallocType = llvm::FunctionType::get(
+                builder.getInt8Ty()->getPointerTo(),
+                {builder.getInt64Ty()},
+                false);
+            mallocFunc = llvm::Function::Create(mallocType, llvm::Function::ExternalLinkage, 0, "malloc", module);
+        }
+        
+        llvm::Value* bufferSize = builder.getInt64(1024);
+        llvm::Value* buffer = builder.CreateCall(mallocFunc, {bufferSize}, "input_buffer");
+        
+        llvm::Value* stdinValue = builder.CreateCall(stdinFunc, {builder.getInt32(0)}, "stdin_val");
+        builder.CreateCall(fgetsFunc, {buffer, builder.getInt32(1023), stdinValue}, "fgets_call");
+        
+        llvm::Function* strlenFunc = module->getFunction("strlen");
+        if (!strlenFunc) {
+            llvm::FunctionType* strlenType = llvm::FunctionType::get(
+                builder.getInt64Ty(),
+                {builder.getInt8Ty()->getPointerTo()},
+                false);
+            strlenFunc = llvm::Function::Create(strlenType, llvm::Function::ExternalLinkage, 0, "strlen", module);
+        }
+        
+        llvm::Value* len = builder.CreateCall(strlenFunc, {buffer}, "input_len");
+        llvm::Value* lenNotZero = builder.CreateICmpNE(len, builder.getInt64(0), "len_not_zero");
+        
+        llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
+        llvm::BasicBlock* checkNewlineBB = llvm::BasicBlock::Create(context, "check_newline", currentFunc);
+        llvm::BasicBlock* trimBB = llvm::BasicBlock::Create(context, "trim_newline", currentFunc);
+        llvm::BasicBlock* noTrimBB = llvm::BasicBlock::Create(context, "no_trim_newline", currentFunc);
+        llvm::BasicBlock* doneBB = llvm::BasicBlock::Create(context, "input_done", currentFunc);
+        
+        builder.CreateCondBr(lenNotZero, checkNewlineBB, noTrimBB);
+        
+        builder.SetInsertPoint(checkNewlineBB);
+        llvm::Value* lastIdx = builder.CreateSub(len, builder.getInt64(1), "last_idx");
+        llvm::Value* lastCharPtr = builder.CreateGEP(builder.getInt8Ty(), buffer, lastIdx, "last_char_ptr");
+        llvm::Value* lastChar = builder.CreateLoad(builder.getInt8Ty(), lastCharPtr, "last_char");
+        llvm::Value* isNewline = builder.CreateICmpEQ(lastChar, builder.getInt8('\n'), "is_newline");
+        builder.CreateCondBr(isNewline, trimBB, noTrimBB);
+        
+        builder.SetInsertPoint(trimBB);
+        builder.CreateStore(builder.getInt8('\0'), lastCharPtr);
+        builder.CreateBr(doneBB);
+        
+        builder.SetInsertPoint(noTrimBB);
+        builder.CreateBr(doneBB);
+        
+        builder.SetInsertPoint(doneBB);
+        
+        return buffer;
     }
     
     std::string funcName = expr->ns.empty() ? expr->name : (expr->ns + ":" + expr->name);
@@ -904,7 +1068,199 @@ llvm::Value* LLVMCodegen::codegen(AssignmentStatement* stmt) {
         }
     }
     
-    llvm::Value* value = codegen(stmt->value.get());
+    llvm::Value* value = nullptr;
+    
+    if (auto* callExpr = dynamic_cast<CallExpression*>(stmt->value.get())) {
+        if (callExpr->name == "input" && stmt->hasExplicitType) {
+            llvm::Function* fgetsFunc = module->getFunction("fgets");
+            if (!fgetsFunc) {
+                llvm::FunctionType* fgetsType = llvm::FunctionType::get(
+                    builder.getInt8Ty()->getPointerTo(),
+                    {builder.getInt8Ty()->getPointerTo(), builder.getInt32Ty(), builder.getInt8Ty()->getPointerTo()},
+                    false);
+                fgetsFunc = llvm::Function::Create(fgetsType, llvm::Function::ExternalLinkage, 0, "fgets", module);
+            }
+            
+            llvm::Function* stdinFunc = module->getFunction("__acrt_iob_func");
+            if (!stdinFunc) {
+                llvm::FunctionType* stdinType = llvm::FunctionType::get(
+                    builder.getInt8Ty()->getPointerTo(),
+                    {builder.getInt32Ty()},
+                    false);
+                stdinFunc = llvm::Function::Create(stdinType, llvm::Function::ExternalLinkage, 0, "__acrt_iob_func", module);
+            }
+            
+            llvm::Function* mallocFunc = module->getFunction("malloc");
+            if (!mallocFunc) {
+                llvm::FunctionType* mallocType = llvm::FunctionType::get(
+                    builder.getInt8Ty()->getPointerTo(),
+                    {builder.getInt64Ty()},
+                    false);
+                mallocFunc = llvm::Function::Create(mallocType, llvm::Function::ExternalLinkage, 0, "malloc", module);
+            }
+            
+            llvm::Value* bufferSize = builder.getInt64(256);
+            llvm::Value* buffer = builder.CreateCall(mallocFunc, {bufferSize}, "input_buffer");
+            
+            llvm::Value* stdinValue = builder.CreateCall(stdinFunc, {builder.getInt32(0)}, "stdin_val");
+            
+            llvm::Function* strlenFunc = module->getFunction("strlen");
+            if (!strlenFunc) {
+                llvm::FunctionType* strlenType = llvm::FunctionType::get(
+                    builder.getInt64Ty(),
+                    {builder.getInt8Ty()->getPointerTo()},
+                    false);
+                strlenFunc = llvm::Function::Create(strlenType, llvm::Function::ExternalLinkage, 0, "strlen", module);
+            }
+            
+            llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
+            llvm::BasicBlock* readLoopBB = llvm::BasicBlock::Create(context, "read_loop", currentFunc);
+            llvm::BasicBlock* checkBB = llvm::BasicBlock::Create(context, "check_input", currentFunc);
+            llvm::BasicBlock* doneInputBB = llvm::BasicBlock::Create(context, "done_input", currentFunc);
+            llvm::BasicBlock* eofBB = llvm::BasicBlock::Create(context, "eof_handler", currentFunc);
+            
+            builder.CreateBr(readLoopBB);
+            
+            builder.SetInsertPoint(readLoopBB);
+            llvm::Value* fgetsResult = builder.CreateCall(fgetsFunc, {buffer, builder.getInt32(255), stdinValue}, "fgets_call");
+            llvm::Value* fgetsOk = builder.CreateICmpNE(fgetsResult, llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0)), "fgets_ok");
+            builder.CreateCondBr(fgetsOk, checkBB, eofBB);
+            
+            builder.SetInsertPoint(checkBB);
+            llvm::Value* len = builder.CreateCall(strlenFunc, {buffer}, "input_len");
+            llvm::Value* lenIsZero = builder.CreateICmpEQ(len, builder.getInt64(0), "len_is_zero");
+            llvm::Value* firstChar = builder.CreateLoad(builder.getInt8Ty(), buffer, "first_char");
+            llvm::Value* isNewline = builder.CreateICmpEQ(firstChar, builder.getInt8('\n'), "is_newline_char");
+            llvm::Value* isEmpty = builder.CreateOr(lenIsZero, isNewline, "is_empty");
+            builder.CreateCondBr(isEmpty, readLoopBB, doneInputBB);
+            
+            builder.SetInsertPoint(eofBB);
+            builder.CreateStore(builder.getInt8('\0'), buffer);
+            builder.CreateBr(doneInputBB);
+            
+            builder.SetInsertPoint(doneInputBB);
+            
+            llvm::Value* len2 = builder.CreateCall(strlenFunc, {buffer}, "input_len2");
+            llvm::Value* len2NotZero = builder.CreateICmpNE(len2, builder.getInt64(0), "len2_not_zero");
+            
+            llvm::BasicBlock* trimNewlineBB2 = llvm::BasicBlock::Create(context, "trim_newline2", currentFunc);
+            llvm::BasicBlock* checkCRBB = llvm::BasicBlock::Create(context, "check_cr", currentFunc);
+            llvm::BasicBlock* trimCRBB = llvm::BasicBlock::Create(context, "trim_cr", currentFunc);
+            llvm::BasicBlock* doneTrimBB = llvm::BasicBlock::Create(context, "done_trim", currentFunc);
+            
+            builder.CreateCondBr(len2NotZero, trimNewlineBB2, doneTrimBB);
+            
+            builder.SetInsertPoint(trimNewlineBB2);
+            llvm::Value* lastIdx2 = builder.CreateSub(len2, builder.getInt64(1), "last_idx2");
+            llvm::Value* lastCharPtr2 = builder.CreateGEP(builder.getInt8Ty(), buffer, lastIdx2, "last_char_ptr2");
+            llvm::Value* lastChar2 = builder.CreateLoad(builder.getInt8Ty(), lastCharPtr2, "last_char2");
+            llvm::Value* isNewline2 = builder.CreateICmpEQ(lastChar2, builder.getInt8('\n'), "is_newline2");
+            builder.CreateCondBr(isNewline2, checkCRBB, doneTrimBB);
+            
+            builder.SetInsertPoint(checkCRBB);
+            builder.CreateStore(builder.getInt8('\0'), lastCharPtr2);
+            llvm::Value* len3 = builder.CreateCall(strlenFunc, {buffer}, "input_len3");
+            llvm::Value* len3NotZero = builder.CreateICmpNE(len3, builder.getInt64(0), "len3_not_zero");
+            builder.CreateCondBr(len3NotZero, trimCRBB, doneTrimBB);
+            
+            builder.SetInsertPoint(trimCRBB);
+            llvm::Value* lastIdx3 = builder.CreateSub(len3, builder.getInt64(1), "last_idx3");
+            llvm::Value* lastCharPtr3 = builder.CreateGEP(builder.getInt8Ty(), buffer, lastIdx3, "last_char_ptr3");
+            llvm::Value* lastChar3 = builder.CreateLoad(builder.getInt8Ty(), lastCharPtr3, "last_char3");
+            llvm::Value* isCR = builder.CreateICmpEQ(lastChar3, builder.getInt8('\r'), "is_cr");
+            llvm::BasicBlock* doTrimCRBB = llvm::BasicBlock::Create(context, "do_trim_cr", currentFunc);
+            builder.CreateCondBr(isCR, doTrimCRBB, doneTrimBB);
+            
+            builder.SetInsertPoint(doTrimCRBB);
+            builder.CreateStore(builder.getInt8('\0'), lastCharPtr3);
+            builder.CreateBr(doneTrimBB);
+            
+            builder.SetInsertPoint(doneTrimBB);
+            
+            if (stmt->declaredType == VarType::INT) {
+                llvm::Function* strtolFunc = module->getFunction("strtol");
+                if (!strtolFunc) {
+                    llvm::FunctionType* strtolType = llvm::FunctionType::get(
+                        builder.getInt64Ty(),
+                        {builder.getInt8Ty()->getPointerTo(), builder.getInt8Ty()->getPointerTo()->getPointerTo(), builder.getInt32Ty()},
+                        false);
+                    strtolFunc = llvm::Function::Create(strtolType, llvm::Function::ExternalLinkage, 0, "strtol", module);
+                }
+                llvm::Value* nullPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0));
+                llvm::Value* longVal = builder.CreateCall(strtolFunc, {buffer, nullPtr, builder.getInt32(10)}, "strtol_call");
+                value = builder.CreateTrunc(longVal, builder.getInt32Ty(), "int_trunc");
+            }
+            else if (stmt->declaredType == VarType::LONG) {
+                llvm::Function* strtollFunc = module->getFunction("strtoll");
+                if (!strtollFunc) {
+                    llvm::FunctionType* strtollType = llvm::FunctionType::get(
+                        builder.getInt64Ty(),
+                        {builder.getInt8Ty()->getPointerTo(), builder.getInt8Ty()->getPointerTo()->getPointerTo(), builder.getInt32Ty()},
+                        false);
+                    strtollFunc = llvm::Function::Create(strtollType, llvm::Function::ExternalLinkage, 0, "strtoll", module);
+                }
+                llvm::Value* nullPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0));
+                value = builder.CreateCall(strtollFunc, {buffer, nullPtr, builder.getInt32(10)}, "strtoll_call");
+            }
+            else if (stmt->declaredType == VarType::FLOAT) {
+                llvm::Function* strtodFunc = module->getFunction("strtod");
+                if (!strtodFunc) {
+                    llvm::FunctionType* strtodType = llvm::FunctionType::get(
+                        builder.getDoubleTy(),
+                        {builder.getInt8Ty()->getPointerTo(), builder.getInt8Ty()->getPointerTo()->getPointerTo()},
+                        false);
+                    strtodFunc = llvm::Function::Create(strtodType, llvm::Function::ExternalLinkage, 0, "strtod", module);
+                }
+                llvm::Value* nullPtr = llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0));
+                llvm::CallInst* call = builder.CreateCall(strtodFunc, {buffer, nullPtr}, "strtod_call");
+                call->setTailCallKind(llvm::CallInst::TCK_None);
+                llvm::Value* doubleVal = call;
+                value = builder.CreateFPTrunc(doubleVal, builder.getFloatTy(), "double_to_float");
+            }
+            else {
+                llvm::Function* strlenFunc = module->getFunction("strlen");
+                if (!strlenFunc) {
+                    llvm::FunctionType* strlenType = llvm::FunctionType::get(
+                        builder.getInt64Ty(),
+                        {builder.getInt8Ty()->getPointerTo()},
+                        false);
+                    strlenFunc = llvm::Function::Create(strlenType, llvm::Function::ExternalLinkage, 0, "strlen", module);
+                }
+                
+                llvm::Value* len = builder.CreateCall(strlenFunc, {buffer}, "input_len");
+                llvm::Value* lenNotZero = builder.CreateICmpNE(len, builder.getInt64(0), "len_not_zero");
+                
+                llvm::Function* currentFunc = builder.GetInsertBlock()->getParent();
+                llvm::BasicBlock* checkNewlineBB = llvm::BasicBlock::Create(context, "check_newline", currentFunc);
+                llvm::BasicBlock* trimBB = llvm::BasicBlock::Create(context, "trim_newline", currentFunc);
+                llvm::BasicBlock* noTrimBB = llvm::BasicBlock::Create(context, "no_trim_newline", currentFunc);
+                llvm::BasicBlock* doneBB = llvm::BasicBlock::Create(context, "input_done", currentFunc);
+                
+                builder.CreateCondBr(lenNotZero, checkNewlineBB, noTrimBB);
+                
+                builder.SetInsertPoint(checkNewlineBB);
+                llvm::Value* lastIdx = builder.CreateSub(len, builder.getInt64(1), "last_idx");
+                llvm::Value* lastCharPtr = builder.CreateGEP(builder.getInt8Ty(), buffer, lastIdx, "last_char_ptr");
+                llvm::Value* lastChar = builder.CreateLoad(builder.getInt8Ty(), lastCharPtr, "last_char");
+                llvm::Value* isNewline = builder.CreateICmpEQ(lastChar, builder.getInt8('\n'), "is_newline");
+                builder.CreateCondBr(isNewline, trimBB, noTrimBB);
+                
+                builder.SetInsertPoint(trimBB);
+                builder.CreateStore(builder.getInt8('\0'), lastCharPtr);
+                builder.CreateBr(doneBB);
+                
+                builder.SetInsertPoint(noTrimBB);
+                builder.CreateBr(doneBB);
+                
+                builder.SetInsertPoint(doneBB);
+                value = buffer;
+            }
+        }
+    }
+    
+    if (!value) {
+        value = codegen(stmt->value.get());
+    }
     if (!value) return nullptr;
     
     llvm::AllocaInst* alloca = nullptr;
@@ -1025,12 +1381,19 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
         auto typeIt = localTypes.find(varExpr->name);
         if (typeIt != localTypes.end()) {
             exprType = typeIt->second;
+        } else {
+            auto globalTypeIt = windowInputTypes.find(varExpr->name);
+            if (globalTypeIt != windowInputTypes.end()) {
+                exprType = globalTypeIt->second;
+            }
         }
     } else if (auto* callExpr = dynamic_cast<CallExpression*>(stmt->expr.get())) {
         std::string funcName = callExpr->ns.empty() ? callExpr->name : (callExpr->ns + ":" + callExpr->name);
         auto retTypeIt = funcReturnTypes.find(funcName);
         if (retTypeIt != funcReturnTypes.end()) {
             exprType = retTypeIt->second;
+        } else if (callExpr->name == "input") {
+            exprType = VarType::STRING;
         }
     } else if (auto* arrIdx = dynamic_cast<ArrayIndexExpression*>(stmt->expr.get())) {
         if (auto* varExpr = dynamic_cast<VariableExpression*>(arrIdx->array.get())) {
@@ -1049,6 +1412,10 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
                     exprType = VarType::BOOL;
                 }
             }
+        }
+    } else if (auto* binOp = dynamic_cast<BinaryOp*>(stmt->expr.get())) {
+        if (binOp->op == BinaryOpType::ADD) {
+            exprType = VarType::STRING;
         }
     }
     
@@ -1171,7 +1538,20 @@ llvm::Value* LLVMCodegen::codegen(PrintStatement* stmt) {
             formatPtr = builder.CreateGlobalStringPtr("%d\n", "format");
         }
         
-        return builder.CreateCall(printfFunc->getFunctionType(), printfFunc, {formatPtr, printArg}, "printfcall");
+        builder.CreateCall(printfFunc->getFunctionType(), printfFunc, {formatPtr, printArg}, "printfcall");
+        
+        llvm::Function* fflushFunc = module->getFunction("fflush");
+        if (!fflushFunc) {
+            llvm::FunctionType* fflushType = llvm::FunctionType::get(
+                builder.getInt32Ty(),
+                {builder.getInt8Ty()->getPointerTo()},
+                false);
+            fflushFunc = llvm::Function::Create(fflushType, llvm::Function::ExternalLinkage, 0, "fflush", module);
+        }
+        llvm::Value* stdoutPtr = builder.CreateCall(module->getFunction("__acrt_iob_func"), {builder.getInt32(1)}, "stdout");
+        builder.CreateCall(fflushFunc, {stdoutPtr}, "fflush_stdout");
+        
+        return nullptr;
     }
     
     return arg;
@@ -2111,6 +2491,22 @@ llvm::Value* LLVMCodegen::codegen(WindowStatement* windowStmt) {
     llvm::BasicBlock* loopCondBB = llvm::BasicBlock::Create(context, "xr_loop_cond_" + std::to_string(windowId), currentFunction);
     llvm::BasicBlock* loopBodyBB = llvm::BasicBlock::Create(context, "xr_loop_body_" + std::to_string(windowId), currentFunction);
     llvm::BasicBlock* loopEndBB = llvm::BasicBlock::Create(context, "xr_loop_end_" + std::to_string(windowId), currentFunction);
+
+    for (const auto& input : windowStmt->inputs) {
+        if (!input->varName.empty()) {
+            std::string globalName = "__xfawa_input_" + input->varName;
+            llvm::GlobalVariable* inputGlobal = new llvm::GlobalVariable(
+                *module,
+                llvm::PointerType::get(context, 0),
+                false,
+                llvm::GlobalValue::InternalLinkage,
+                llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0)),
+                globalName);
+            windowInputGlobals[input->varName] = inputGlobal;
+            windowInputTypes[input->varName] = VarType::STRING;
+        }
+    }
+
     std::vector<llvm::Function*> buttonHandlers;
     buttonHandlers.reserve(windowStmt->buttons.size());
     for (size_t i = 0; i < windowStmt->buttons.size(); ++i) {
@@ -2211,6 +2607,10 @@ llvm::Value* LLVMCodegen::codegen(WindowStatement* windowStmt) {
                 inputVarPtr
             });
         if (!input->varName.empty()) {
+            auto globalIt = windowInputGlobals.find(input->varName);
+            if (globalIt != windowInputGlobals.end()) {
+                builder.CreateStore(inputTextPtr, globalIt->second);
+            }
             llvm::AllocaInst* inputStorage = builder.CreateAlloca(
                 llvm::PointerType::get(context, 0),
                 nullptr,
@@ -2225,6 +2625,14 @@ llvm::Value* LLVMCodegen::codegen(WindowStatement* windowStmt) {
     builder.CreateBr(loopCondBB);
 
     builder.SetInsertPoint(loopEndBB);
+    
+    for (const auto& input : windowStmt->inputs) {
+        if (!input->varName.empty()) {
+            windowInputGlobals.erase(input->varName);
+            windowInputTypes.erase(input->varName);
+        }
+    }
+    
     return builder.getInt32(0);
 }
 

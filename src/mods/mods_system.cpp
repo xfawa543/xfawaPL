@@ -209,6 +209,18 @@ void ModLexer::lexNumber() {
     while (!isAtEnd() && std::isdigit(peek())) {
         text += advance();
     }
+    if (peek() == '.' && std::isdigit(peek(1))) {
+        text += advance();
+        while (!isAtEnd() && std::isdigit(peek())) {
+            text += advance();
+        }
+        if (peek() == '.' && std::isdigit(peek(1))) {
+            text += advance();
+            while (!isAtEnd() && std::isdigit(peek())) {
+                text += advance();
+            }
+        }
+    }
     addToken(ModTokenType::NUMBER_LITERAL, text);
 }
 
@@ -359,6 +371,10 @@ bool ModParser::parseBlock() {
         return false;
     }
     
+    if (peek().is(ModTokenType::PUNCTUATOR_LBRACKET)) {
+        return parseMetaBlock();
+    }
+    
     if (!consume(ModTokenType::IDENTIFIER)) {
         addError("Expected block name after '#'");
         return false;
@@ -382,6 +398,86 @@ bool ModParser::parseBlock() {
     }
     
     blocks.push_back(std::move(block));
+    return true;
+}
+
+bool ModParser::parseMetaBlock() {
+    if (!consume(ModTokenType::PUNCTUATOR_LBRACKET)) {
+        addError("Expected '[' after '#' for meta block");
+        return false;
+    }
+    
+    if (!consume(ModTokenType::IDENTIFIER)) {
+        addError("Expected 'meta' in #[meta] block");
+        return false;
+    }
+    
+    std::string metaType = tokens[current - 1].text;
+    if (metaType != "meta") {
+        addError("Unknown meta block type: " + metaType + ". Expected 'meta'");
+        return false;
+    }
+    
+    if (!consume(ModTokenType::PUNCTUATOR_RBRACKET)) {
+        addError("Expected ']' after 'meta'");
+        return false;
+    }
+    
+    if (!consume(ModTokenType::PUNCTUATOR_LBRACE)) {
+        addError("Expected '{' after #[meta]");
+        return false;
+    }
+    
+    metaInfo.line = tokens[current - 1].line;
+    
+    while (!isAtEnd() && !peek().is(ModTokenType::PUNCTUATOR_RBRACE)) {
+        if (!peek().is(ModTokenType::IDENTIFIER)) {
+            addError("Expected property name in #[meta] block");
+            advance();
+            continue;
+        }
+        
+        std::string propName = peek().text;
+        advance();
+        
+        if (!consume(ModTokenType::PUNCTUATOR_COLON)) {
+            addError("Expected ':' after property name '" + propName + "'");
+            continue;
+        }
+        
+        std::string propValue;
+        if (peek().is(ModTokenType::STRING_LITERAL)) {
+            propValue = peek().text;
+            advance();
+        } else if (peek().is(ModTokenType::IDENTIFIER)) {
+            propValue = peek().text;
+            advance();
+        } else if (peek().is(ModTokenType::NUMBER_LITERAL)) {
+            propValue = peek().text;
+            advance();
+        } else {
+            addError("Expected value after ':' for property '" + propName + "'");
+            continue;
+        }
+        
+        if (propName == "author") {
+            metaInfo.setAuthor(propValue);
+        } else if (propName == "version") {
+            metaInfo.setVersion(propValue);
+        } else if (propName == "description") {
+            metaInfo.setDescription(propValue);
+        } else if (propName == "license") {
+            metaInfo.setLicense(propValue);
+        } else {
+            addError("Unknown meta property: " + propName);
+        }
+    }
+    
+    if (!consume(ModTokenType::PUNCTUATOR_RBRACE)) {
+        addError("Expected '}' to close #[meta] block");
+        return false;
+    }
+    
     return true;
 }
 
@@ -1013,6 +1109,18 @@ bool ModsSystem::loadModFromContent(const std::string& content) {
         return false;
     }
     
+    const auto& parsedMeta = parser.getMetaInfo();
+    if (parsedMeta.hasMeta) {
+        globalMeta = parsedMeta;
+        if (g_debug_global) {
+            std::cerr << "[mods debug] Meta info loaded:" << std::endl;
+            if (!parsedMeta.author.empty()) std::cerr << "  author: " << parsedMeta.author << std::endl;
+            if (!parsedMeta.version.empty()) std::cerr << "  version: " << parsedMeta.version << std::endl;
+            if (!parsedMeta.description.empty()) std::cerr << "  description: " << parsedMeta.description << std::endl;
+            if (!parsedMeta.license.empty()) std::cerr << "  license: " << parsedMeta.license << std::endl;
+        }
+    }
+    
     auto blocks = parser.getBlocks();
     size_t previousBlockCount = loadedBlocks.size();
     
@@ -1371,6 +1479,7 @@ void ModsSystem::clear() {
     totalAddedSyntaxCount = 0;
     currentLoadOrder = 0;
     currentModName.clear();
+    globalMeta = ModMetaInfo();
 }
 
 }
