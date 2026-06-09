@@ -389,17 +389,18 @@ class Function {
 public:
     std::string name;
     std::string ns;
+    std::string blockName;  // Alpha17: Block name for block.function syntax
     std::vector<std::unique_ptr<VariableDeclaration>> params;
     std::unique_ptr<BlockStatement> body;
     SourceLocation location;
     
     Function(const std::string& n, std::vector<std::unique_ptr<VariableDeclaration>> p,
              std::unique_ptr<BlockStatement> b, const SourceLocation& loc = SourceLocation())
-        : name(n), ns(""), params(std::move(p)), body(std::move(b)), location(loc) {}
+        : name(n), ns(""), blockName(""), params(std::move(p)), body(std::move(b)), location(loc) {}
     
     Function(const std::string& n, const std::string& ns_name, std::vector<std::unique_ptr<VariableDeclaration>> p,
              std::unique_ptr<BlockStatement> b, const SourceLocation& loc = SourceLocation())
-        : name(n), ns(ns_name), params(std::move(p)), body(std::move(b)), location(loc) {}
+        : name(n), ns(ns_name), blockName(""), params(std::move(p)), body(std::move(b)), location(loc) {}
     
     std::string toString() const {
         std::string result = "fn ";
@@ -420,6 +421,7 @@ class Module {
 public:
     std::string name;
     std::vector<std::unique_ptr<Function>> functions;
+    std::vector<std::unique_ptr<ImportStatement>> imports;
     SourceLocation location;
     
     Module(const std::string& n, std::vector<std::unique_ptr<Function>> f,
@@ -428,6 +430,9 @@ public:
     
     std::string toString() const {
         std::string result = "#" + name + " {\n";
+        for (const auto& imp : imports) {
+            result += "  " + imp->toString() + "\n";
+        }
         for (const auto& func : functions) {
             result += "  " + func->toString() + "\n";
         }

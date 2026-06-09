@@ -59,6 +59,7 @@ const std::vector<std::pair<std::string, TokenType>> Lexer::punctuatuators = {
     {"||", TokenType::PUNCTUATOR_OR},
     {"#", TokenType::PUNCTUATOR_HASH},
     {"$", TokenType::PUNCTUATOR_DOLLAR},
+    {".", TokenType::PUNCTUATOR_DOT},
     {"...", TokenType::PUNCTUATOR_DOT_DOT_DOT}
 };
 
@@ -116,6 +117,7 @@ std::string Lexer::tokenTypeToString(TokenType type) {
         case TokenType::PUNCTUATOR_HASH: return "#";
         case TokenType::PUNCTUATOR_DOLLAR: return "$";
         case TokenType::PUNCTUATOR_COLON: return ":";
+        case TokenType::PUNCTUATOR_DOT: return ".";
         case TokenType::PUNCTUATOR_DOT_DOT_DOT: return "...";
         default: return "unknown";
     }

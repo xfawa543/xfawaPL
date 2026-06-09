@@ -1,4 +1,5 @@
 #include "xfawa_llvm_codegen.h"
+#include "xfawa_error.h"
 #include <cctype>
 #include <cstdlib>
 #include <filesystem>
@@ -719,24 +720,45 @@ llvm::Value* LLVMCodegen::codegen(CallExpression* expr) {
     
     std::string funcName = expr->ns.empty() ? expr->name : (expr->ns + ":" + expr->name);
     llvm::Function* callee = module->getFunction(funcName);
-    if (!callee) {
-        callee = module->getFunction(expr->name);
-    }
+    
+    // If function not found and no namespace specified, try to find by name only
     if (!callee && expr->ns.empty()) {
-        for (auto it = module->begin(); it != module->end(); ++it) {
-            std::string fname = it->getName().str();
-            size_t colonPos = fname.find(':');
-            if (colonPos != std::string::npos) {
-                std::string pureName = fname.substr(colonPos + 1);
-                if (pureName == expr->name) {
-                    callee = &(*it);
-                    break;
+        callee = module->getFunction(expr->name);
+        
+        // If still not found, search for functions with matching name
+        if (!callee) {
+            for (auto it = module->begin(); it != module->end(); ++it) {
+                std::string fname = it->getName().str();
+                size_t colonPos = fname.find(':');
+                if (colonPos != std::string::npos) {
+                    std::string pureName = fname.substr(colonPos + 1);
+                    if (pureName == expr->name) {
+                        callee = &(*it);
+                        break;
+                    }
                 }
             }
         }
     }
+    
     if (!callee) {
-        addError("Unknown function: " + funcName);
+        // Provide suggestions for similar function names
+        std::vector<std::string> candidates;
+        for (auto it = module->begin(); it != module->end(); ++it) {
+            candidates.push_back(it->getName().str());
+        }
+        
+        std::vector<std::string> suggestions = findSuggestions(funcName, candidates, 3, 3);
+        
+        std::string errorMsg = "Unknown function: " + funcName;
+        if (!suggestions.empty()) {
+            errorMsg += "\n  Did you mean:\n";
+            for (size_t i = 0; i < suggestions.size(); i++) {
+                errorMsg += "    " + std::to_string(i + 1) + ". " + suggestions[i] + "\n";
+            }
+        }
+        
+        addError(errorMsg);
         return nullptr;
     }
     
@@ -2002,7 +2024,21 @@ bool LLVMCodegen::codegenProgram(Program* program) {
             }
             
             bool isMain = (func->name == "main");
-            std::string funcName = isMain ? func->name : (func->ns.empty() ? func->name : (func->ns + ":" + func->name));
+            
+            // Alpha17: Generate function name with block prefix
+            std::string funcName;
+            if (isMain) {
+                funcName = func->name;
+            } else if (!func->ns.empty()) {
+                // Old syntax: pub:function
+                funcName = func->ns + ":" + func->name;
+            } else if (!func->blockName.empty()) {
+                // Alpha17 syntax: block.function
+                funcName = func->blockName + ":" + func->name;
+            } else {
+                funcName = func->name;
+            }
+            
             llvm::FunctionType* funcType = llvm::FunctionType::get(llvm::Type::getInt64Ty(context), paramTypes, false);
             
             llvm::Function* llvmFunc = llvm::Function::Create(funcType, llvm::Function::LinkageTypes::ExternalLinkage, 0, funcName, module);
@@ -2047,7 +2083,21 @@ bool LLVMCodegen::codegen(Function* func) {
     localTypes.clear();
     
     bool isMain = (func->name == "main");
-    std::string funcName = isMain ? func->name : (func->ns.empty() ? func->name : (func->ns + ":" + func->name));
+    
+    // Alpha17: Generate function name with block prefix
+    std::string funcName;
+    if (isMain) {
+        funcName = func->name;
+    } else if (!func->ns.empty()) {
+        // Old syntax: pub:function
+        funcName = func->ns + ":" + func->name;
+    } else if (!func->blockName.empty()) {
+        // Alpha17 syntax: block.function
+        funcName = func->blockName + ":" + func->name;
+    } else {
+        funcName = func->name;
+    }
+    
     llvm::Function* llvmFunc = module->getFunction(funcName);
     if (!llvmFunc) {
         std::vector<llvm::Type*> paramTypes;
@@ -2068,14 +2118,8 @@ bool LLVMCodegen::codegen(Function* func) {
         llvm::BasicBlock* entryBB = llvm::BasicBlock::Create(context, "entry", llvmFunc);
         builder.SetInsertPoint(entryBB);
         
-        if (isMain) {
-            llvm::Function* setvbufFunc = module->getFunction("setvbuf");
-            if (setvbufFunc) {
-                llvm::Value* stdoutPtr = builder.CreateCall(module->getFunction("__acrt_iob_func"), {builder.getInt32(1)}, "stdout");
-                llvm::Value* nullBuf = llvm::ConstantPointerNull::get(builder.getInt8Ty()->getPointerTo());
-                builder.CreateCall(setvbufFunc, {stdoutPtr, nullBuf, builder.getInt32(4), builder.getInt64(0)});
-            }
-        }
+        // Note: setvbuf removed due to Windows compatibility issues
+        // Output will still work correctly with default buffering
         
         if (isMain && usesRandomBuiltin) {
             llvm::Function* timeFunc = module->getFunction("time");

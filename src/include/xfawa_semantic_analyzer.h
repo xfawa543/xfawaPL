@@ -4,6 +4,7 @@
 #include "xfawa_ast.h"
 #include "xfawa_namespace_policy.h"
 #include "xfawa_error.h"
+#include "xfawa_xfw.h"
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
@@ -28,8 +29,13 @@ private:
     std::unordered_map<std::string, FunctionInfo> privateFunctions;
     std::unordered_map<std::string, FunctionInfo> allFunctions;
     std::string currentModule;
+    const XfwSystem* xfwSystem = nullptr;
     
 public:
+    void setXfwSystem(const XfwSystem* system) {
+        xfwSystem = system;
+    }
+    
     bool analyze(Program* program) {
         if (!program) return false;
         
@@ -252,6 +258,7 @@ private:
         }
         
         if (!call->ns.empty()) {
+            // Check for reserved namespace
             if (NamespacePolicy::isReserved(call->ns)) {
                 errors.push_back(NamespacePolicy::getReservedNamespacesError(call->ns) + 
                     " at line " + std::to_string(call->location.line));
@@ -264,10 +271,59 @@ private:
                 return false;
             }
             
-            std::string key = call->ns + ":" + call->name;
-            if (publicFunctions.find(key) == publicFunctions.end()) {
-                errors.push_back("Undefined public function: " + key + 
-                    " at line " + std::to_string(call->location.line));
+            // Alpha17: Support block.function() syntax
+            // First, try to find as a block function (block:function)
+            std::string blockKey = call->ns + ":" + call->name;
+            
+            // Check if it's a public function (old ns:function syntax)
+            if (publicFunctions.find(blockKey) != publicFunctions.end()) {
+                // Found as public function
+            }
+            // Check if it's a block function (any function in the block)
+            else if (allFunctions.find(blockKey) != allFunctions.end()) {
+                // Found as block function
+            }
+            // Check if it's an xfw library function
+            else if (xfwSystem && xfwSystem->hasFunction(call->ns, call->name)) {
+                // Found as xfw library function
+            }
+            else {
+                // Function not found, provide suggestions
+                std::vector<std::string> candidates;
+                for (const auto& pair : allFunctions) {
+                    // Extract function name from key (block:function format)
+                    size_t colonPos = pair.first.find(':');
+                    if (colonPos != std::string::npos) {
+                        std::string funcBlock = pair.first.substr(0, colonPos);
+                        std::string funcName = pair.first.substr(colonPos + 1);
+                        // Check if it's in the same block or has matching name
+                        if (funcBlock == call->ns || funcName == call->name) {
+                            candidates.push_back(funcBlock + "." + funcName);
+                        }
+                    }
+                }
+                
+                // Add xfw library functions to candidates
+                if (xfwSystem) {
+                    for (const auto& func : xfwSystem->getExportedFunctions()) {
+                        candidates.push_back(func.ns + "." + func.name);
+                    }
+                }
+                
+                std::vector<std::string> suggestions = findSuggestions(call->name, 
+                    std::vector<std::string>(candidates.begin(), candidates.end()), 3, 3);
+                
+                std::string errorMsg = "Undefined function: " + call->ns + "." + call->name + 
+                    " at line " + std::to_string(call->location.line);
+                
+                if (!suggestions.empty()) {
+                    errorMsg += "\n  Did you mean:\n";
+                    for (size_t i = 0; i < suggestions.size(); i++) {
+                        errorMsg += "    " + std::to_string(i + 1) + ". " + suggestions[i] + "\n";
+                    }
+                }
+                
+                errors.push_back(errorMsg);
                 return false;
             }
         } else {
@@ -281,8 +337,25 @@ private:
                     }
                 }
                 if (!found) {
-                    errors.push_back("Undefined function: " + call->name + 
-                        " at line " + std::to_string(call->location.line));
+                    // Provide suggestions for similar function names
+                    std::vector<std::string> candidates;
+                    for (const auto& pair : allFunctions) {
+                        candidates.push_back(pair.second.name);
+                    }
+                    
+                    std::vector<std::string> suggestions = findSuggestions(call->name, candidates, 3, 3);
+                    
+                    std::string errorMsg = "Undefined function: " + call->name + 
+                        " at line " + std::to_string(call->location.line);
+                    
+                    if (!suggestions.empty()) {
+                        errorMsg += "\n  Did you mean:\n";
+                        for (size_t i = 0; i < suggestions.size(); i++) {
+                            errorMsg += "    " + std::to_string(i + 1) + ". " + suggestions[i] + "\n";
+                        }
+                    }
+                    
+                    errors.push_back(errorMsg);
                     return false;
                 }
             }

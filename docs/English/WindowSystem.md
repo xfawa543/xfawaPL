@@ -155,13 +155,227 @@ button {
                 width: 200
                 height: 40
                 text: "Click Me"
-                
+
                 print("Button clicked!")
             }
         }
     }
 }
 ```
+
+---
+
+## XSS Style System
+
+Use XSS (xfawa Style Sheets) files to define component styles.
+
+### Syntax
+
+Specify style file in window:
+
+```xfawa
+window {
+    width: 600
+    height: 400
+    title: "Styled Window"
+    color: white
+    style: "styles.xss"
+
+    // components...
+}
+```
+
+### XSS File Format
+
+```css
+button {
+    background-color: #2d7ff9
+    text-color: white
+    border-radius: 8
+    border-width: 1
+    border-color: #1d4fa0
+}
+```
+
+### Style Properties
+
+| Property | Type | Description |
+|------|------|------|
+| `background-color` | color | Background color (hexadecimal) |
+| `text-color` | color | Text color |
+| `border-radius` | int | Border radius |
+| `border-width` | int | Border width |
+| `border-color` | color | Border color |
+
+---
+
+## Animation System
+
+Define component animation effects in XSS files.
+
+### Animation Parameters
+
+| Parameter | Description | Example |
+|------|------|------|
+| `x-animation` | X-axis movement animation | `x-animation: animation(10, 200)` |
+| `y-animation` | Y-axis movement animation | `y-animation: animation(50, 150)` |
+| `width-animation` | Width change animation | `width-animation: animation(100, 300)` |
+| `height-animation` | Height change animation | `height-animation: animation(40, 80)` |
+
+### Animation Syntax
+
+```css
+animation(initial_value, target_value)
+```
+
+- **initial_value**: Value at animation start (pixels)
+- **target_value**: Value at animation end (pixels)
+
+### Animation Triggers
+
+Use `animation-trigger {}` sub-block to define animation trigger conditions. Only animation parameters defined inside the trigger block will be controlled by the trigger.
+
+#### Trigger Syntax
+
+```css
+button {
+    // style properties...
+
+    animation-trigger {
+        // animation parameters (inside trigger block)
+        x-animation: animation(10, 200)
+        y-animation: animation(50, 150)
+        width-animation: animation(100, 300)
+        height-animation: animation(40, 80)
+
+        // trigger conditions
+        window-click()           // full window click trigger
+        window-click(x, y, w, h) // specific area click trigger
+        key-click: "A"           // key press trigger
+        button-click: "namespace" // button namespace trigger
+    }
+}
+```
+
+#### Trigger Condition Types
+
+| Trigger | Syntax | Description |
+|--------|------|------|
+| **window-click** | `window-click()` | Trigger on click anywhere in window |
+| **window-click** | `window-click(x, y, w, h)` | Trigger on click in specific area (x, y is top-left corner, w, h is area width and height) |
+| **key-click** | `key-click: "key_name"` | Trigger on key press (supports A-Z letter keys) |
+| **button-click** | `button-click: "namespace"` | Trigger on click of button with specified namespace |
+
+### Animation Examples
+
+#### Example 1: Window Click Trigger
+
+```xfawa
+#window_click_demo {
+    fn main() {
+        window {
+            width: 600
+            height: 400
+            title: "Window Click Animation"
+            color: white
+            style: "animation.xss"
+
+            text {
+                x: 10
+                y: 10
+                text: "Click anywhere to trigger animation"
+            }
+
+            button {
+                x: 10
+                y: 100
+                width: 120
+                height: 40
+                text: "Animated Button"
+                print("Button clicked")
+            }
+        }
+    }
+}
+```
+
+**animation.xss:**
+
+```css
+button {
+    background-color: #2d7ff9
+    text-color: white
+    border-radius: 8
+    border-width: 1
+    border-color: #1d4fa0
+
+    animation-trigger {
+        x-animation: animation(10, 400)
+        y-animation: animation(100, 100)
+        width-animation: animation(120, 200)
+        height-animation: animation(40, 80)
+        window-click()
+    }
+}
+```
+
+#### Example 2: Key Click Trigger
+
+```xfawa
+#key_click_demo {
+    fn main() {
+        window {
+            width: 600
+            height: 400
+            title: "Key Click Animation"
+            color: white
+            style: "key_animation.xss"
+
+            text {
+                x: 10
+                y: 10
+                text: "Press 'A' key to trigger animation"
+            }
+
+            button {
+                x: 10
+                y: 100
+                width: 120
+                height: 40
+                text: "Animated Button"
+                print("Button clicked")
+            }
+        }
+    }
+}
+```
+
+**key_animation.xss:**
+
+```css
+button {
+    background-color: #f92d7f
+    text-color: white
+    border-radius: 8
+    border-width: 1
+    border-color: #a01d4f
+
+    animation-trigger {
+        x-animation: animation(10, 400)
+        y-animation: animation(100, 100)
+        width-animation: animation(120, 200)
+        height-animation: animation(40, 80)
+        key-click: "A"
+    }
+}
+```
+
+### Animation Behavior Notes
+
+1. **Auto-play Control**: Animation parameters inside `animation-trigger {}` block won't auto-play on program startup
+2. **Trigger Activation**: Animation only activates and starts executing when trigger condition is met
+3. **Animation Order**: Multiple animation parameters execute simultaneously, linearly interpolating from initial value to target value
+4. **Unit**: All animation values are in pixels
 
 ---
 

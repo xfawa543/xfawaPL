@@ -186,7 +186,7 @@ enum class TokenType {
     PUNCTUATOR_HASH,
     PUNCTUATOR_DOLLAR,
     PUNCTUATOR_COLON,
-    
+    PUNCTUATOR_DOT,
     PUNCTUATOR_DOT_DOT_DOT,
     
     COMMENT,
@@ -239,7 +239,8 @@ enum class UnaryOpType {
 
 enum class ImportType {
     MOD,
-    FILE
+    FILE,
+    XFW
 };
 
 struct ImportStatement : public Statement {
@@ -251,7 +252,10 @@ struct ImportStatement : public Statement {
         : Statement(NodeType::IMPORT_STATEMENT, loc), name(n), path(p), type(t) {}
     
     std::string toString() const override {
-        std::string typeStr = (type == ImportType::MOD) ? "mod" : "file";
+        std::string typeStr;
+        if (type == ImportType::MOD) typeStr = "mod";
+        else if (type == ImportType::XFW) typeStr = "xfw";
+        else typeStr = "file";
         return "%import \"" + name + "\" (" + typeStr + ")";
     }
 };

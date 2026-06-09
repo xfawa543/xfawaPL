@@ -10,12 +10,46 @@
 
 namespace {
 
+// Animation data structure
+struct XRAnimation {
+    int initialValue = 0;     // Initial value (pixels)
+    int targetValue = 0;      // Target value (pixels)
+    int currentValue = 0;     // Current value
+    bool active = false;      // Is active
+    float progress = 0.0f;    // Animation progress (0.0 - 1.0)
+    int duration = 1000;      // Animation duration (milliseconds)
+    DWORD startTime = 0;      // Start time
+};
+
+// Animation trigger structure
+struct XRAnimationTrigger {
+    std::string type;  // "window-click", "key-click", "button-click"
+    
+    // window-click parameters
+    int windowClickX = 0;
+    int windowClickY = 0;
+    int windowClickWidth = 0;
+    int windowClickHeight = 0;
+    bool windowClickFullArea = true;  // Trigger on any window click
+    
+    // key-click parameters
+    std::string keyName;
+    
+    // button-click parameters
+    std::string buttonNamespace;
+};
+
 struct XRButtonStyle {
     COLORREF backgroundColor = RGB(128, 128, 128);
     COLORREF textColor = RGB(0, 0, 0);
     COLORREF borderColor = RGB(0, 0, 0);
     int borderRadius = 0;
     int borderWidth = 0;
+    XRAnimation xAnimation;      // X-axis animation
+    XRAnimation yAnimation;      // Y-axis animation
+    XRAnimation widthAnimation;  // Width animation
+    XRAnimation heightAnimation; // Height animation
+    std::vector<XRAnimationTrigger> triggers;  // Animation triggers
 };
 
 struct XRStyleTable {
@@ -35,6 +69,8 @@ struct XRTextCommand {
     int y;
     std::string text;
     COLORREF color;
+    XRAnimation xAnimation;
+    XRAnimation yAnimation;
 };
 
 struct XRButtonCommand {
@@ -42,9 +78,17 @@ struct XRButtonCommand {
     int y;
     int width;
     int height;
+    int initialX;  // Initial position (for identification)
+    int initialY;  // Initial position (for identification)
     std::string text;
+    std::string namespace_;  // Button namespace for trigger identification
     XRButtonStyle style;
     void (*handler)() = nullptr;
+    XRAnimation xAnimation;
+    XRAnimation yAnimation;
+    XRAnimation widthAnimation;
+    XRAnimation heightAnimation;
+    std::vector<XRAnimationTrigger> triggers;  // Animation triggers
 };
 
 struct XRBoxCommand {
@@ -55,6 +99,10 @@ struct XRBoxCommand {
     int height;
     std::string text;
     int scrollOffset = 0;
+    XRAnimation xAnimation;
+    XRAnimation yAnimation;
+    XRAnimation widthAnimation;
+    XRAnimation heightAnimation;
 };
 
 struct XRInputCommand {
@@ -67,6 +115,13 @@ struct XRInputCommand {
     std::string text;
     bool focused = false;
     HWND hwnd = nullptr;
+    XRAnimation xAnimation;
+    XRAnimation yAnimation;
+    XRAnimation widthAnimation;
+    XRAnimation heightAnimation;
+    std::string animationTrigger;  // "window-click" or "button-click"
+    bool animationOnWindowClick = false;
+    bool animationOnButtonClick = false;
 };
 
 HWND g_window = nullptr;
@@ -127,6 +182,43 @@ COLORREF parseColor(const std::string& raw, COLORREF fallback) {
     return fallback;
 }
 
+// Parse animation syntax: animation(initialValue, targetValue)
+XRAnimation parseAnimation(const std::string& value) {
+    XRAnimation anim;
+    
+    // Find animation keyword
+    if (value.find("animation(") == std::string::npos) {
+        return anim;
+    }
+    
+    // Extract parameters inside parentheses
+    size_t start = value.find('(');
+    size_t end = value.find(')');
+    if (start == std::string::npos || end == std::string::npos || end <= start) {
+        return anim;
+    }
+    
+    std::string params = value.substr(start + 1, end - start - 1);
+    
+    // Split parameters (separated by comma)
+    size_t comma = params.find(',');
+    if (comma == std::string::npos) {
+        return anim;
+    }
+    
+    std::string initVal = trim(params.substr(0, comma));
+    std::string targetVal = trim(params.substr(comma + 1));
+    
+    // Parse values
+    anim.initialValue = std::stoi(initVal);
+    anim.targetValue = std::stoi(targetVal);
+    anim.currentValue = anim.initialValue;
+    anim.active = false;  // Don't auto-activate - wait for trigger
+    anim.progress = 0.0f;
+    
+    return anim;
+}
+
 std::filesystem::path resolveStylePath(const std::string& input) {
     std::filesystem::path requested(input);
     if (std::filesystem::exists(requested)) {
@@ -165,7 +257,20 @@ bool parseXssFile(const std::filesystem::path& path) {
     applyDefaultStyles();
 
     bool inButtonBlock = false;
+    bool inTriggerBlock = false;
     std::string line;
+    
+    // Debug: log file parsing
+    static FILE* parseLog = nullptr;
+    if (!parseLog) {
+        parseLog = fopen("xss_parse_debug.log", "w");
+        if (parseLog) {
+            fprintf(parseLog, "=== XSS Parse Debug ===\n");
+            fprintf(parseLog, "Parsing file: %s\n", path.string().c_str());
+            fflush(parseLog);
+        }
+    }
+    
     while (std::getline(file, line)) {
         size_t commentPos = line.find("//");
         if (commentPos != std::string::npos) {
@@ -180,15 +285,160 @@ bool parseXssFile(const std::filesystem::path& path) {
         if (!inButtonBlock) {
             if (line == "button{" || line == "button {") {
                 inButtonBlock = true;
+                if (parseLog) {
+                    fprintf(parseLog, "\nFound button block\n");
+                    fflush(parseLog);
+                }
             }
             continue;
         }
 
-        if (line == "}") {
+        // Handle trigger block
+        if (line == "animation-trigger{" || line == "animation-trigger {") {
+            inTriggerBlock = true;
+            if (parseLog) {
+                fprintf(parseLog, "  Found animation-trigger block\n");
+                fflush(parseLog);
+            }
+            continue;
+        }
+
+        if (inTriggerBlock && line == "}") {
+            inTriggerBlock = false;
+            continue;
+        }
+
+        if (inButtonBlock && !inTriggerBlock && line == "}") {
             inButtonBlock = false;
             continue;
         }
 
+        // Parse trigger conditions inside trigger block
+        if (inTriggerBlock) {
+            // Parse window-click(x, y, width, height) or window-click()
+            if (line.find("window-click") == 0) {
+                XRAnimationTrigger trigger;
+                trigger.type = "window-click";
+                
+                size_t start = line.find('(');
+                size_t end = line.find(')');
+                if (start != std::string::npos && end != std::string::npos && end > start) {
+                    std::string params = line.substr(start + 1, end - start - 1);
+                    params = trim(params);
+                    
+                    if (!params.empty()) {
+                        // Parse x, y, width, height
+                        std::vector<int> values;
+                        std::istringstream iss(params);
+                        std::string token;
+                        while (std::getline(iss, token, ',')) {
+                            values.push_back(std::stoi(trim(token)));
+                        }
+                        if (values.size() >= 4) {
+                            trigger.windowClickX = values[0];
+                            trigger.windowClickY = values[1];
+                            trigger.windowClickWidth = values[2];
+                            trigger.windowClickHeight = values[3];
+                            trigger.windowClickFullArea = false;
+                        }
+                    }
+                }
+                
+                g_styles.button.triggers.push_back(trigger);
+                if (parseLog) {
+                    fprintf(parseLog, "    Added trigger: window-click\n");
+                    fflush(parseLog);
+                }
+            }
+            // Parse key-click: "keyName"
+            else if (line.find("key-click:") == 0) {
+                XRAnimationTrigger trigger;
+                trigger.type = "key-click";
+                
+                size_t colon = line.find(':');
+                std::string value = trim(line.substr(colon + 1));
+                // Remove quotes
+                if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
+                    value = value.substr(1, value.size() - 2);
+                }
+                trigger.keyName = value;
+                
+                g_styles.button.triggers.push_back(trigger);
+                if (parseLog) {
+                    fprintf(parseLog, "    Added trigger: key-click \"%s\"\n", trigger.keyName.c_str());
+                    fflush(parseLog);
+                }
+            }
+            // Parse button-click: "namespace"
+            else if (line.find("button-click:") == 0) {
+                XRAnimationTrigger trigger;
+                trigger.type = "button-click";
+                
+                size_t colon = line.find(':');
+                std::string value = trim(line.substr(colon + 1));
+                // Remove quotes
+                if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
+                    value = value.substr(1, value.size() - 2);
+                }
+                trigger.buttonNamespace = value;
+                
+                g_styles.button.triggers.push_back(trigger);
+                if (parseLog) {
+                    fprintf(parseLog, "    Added trigger: button-click \"%s\"\n", trigger.buttonNamespace.c_str());
+                    fflush(parseLog);
+                }
+            }
+            // Parse animation properties inside trigger block (not auto-activated)
+            else {
+                size_t colon = line.find(':');
+                if (colon != std::string::npos) {
+                    std::string key = trim(line.substr(0, colon));
+                    std::string value = trim(line.substr(colon + 1));
+                    if (!value.empty() && value.back() == ';') {
+                        value.pop_back();
+                        value = trim(value);
+                    }
+                    
+                    if (key == "x-animation") {
+                        g_styles.button.xAnimation = parseAnimation(value);
+                        // Don't auto-activate - wait for trigger
+                        if (parseLog) {
+                            fprintf(parseLog, "    x-animation: %d -> %d (triggered)\n", 
+                                    g_styles.button.xAnimation.initialValue, 
+                                    g_styles.button.xAnimation.targetValue);
+                            fflush(parseLog);
+                        }
+                    } else if (key == "y-animation") {
+                        g_styles.button.yAnimation = parseAnimation(value);
+                        if (parseLog) {
+                            fprintf(parseLog, "    y-animation: %d -> %d (triggered)\n", 
+                                    g_styles.button.yAnimation.initialValue, 
+                                    g_styles.button.yAnimation.targetValue);
+                            fflush(parseLog);
+                        }
+                    } else if (key == "width-animation") {
+                        g_styles.button.widthAnimation = parseAnimation(value);
+                        if (parseLog) {
+                            fprintf(parseLog, "    width-animation: %d -> %d (triggered)\n", 
+                                    g_styles.button.widthAnimation.initialValue, 
+                                    g_styles.button.widthAnimation.targetValue);
+                            fflush(parseLog);
+                        }
+                    } else if (key == "height-animation") {
+                        g_styles.button.heightAnimation = parseAnimation(value);
+                        if (parseLog) {
+                            fprintf(parseLog, "    height-animation: %d -> %d (triggered)\n", 
+                                    g_styles.button.heightAnimation.initialValue, 
+                                    g_styles.button.heightAnimation.targetValue);
+                            fflush(parseLog);
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+
+        // Parse normal properties outside trigger block
         size_t colon = line.find(':');
         if (colon == std::string::npos) {
             continue;
@@ -211,10 +461,149 @@ bool parseXssFile(const std::filesystem::path& path) {
             g_styles.button.borderWidth = std::max(0, std::stoi(value));
         } else if (key == "border-color") {
             g_styles.button.borderColor = parseColor(value, g_styles.button.borderColor);
+        } else if (key == "x-animation") {
+            g_styles.button.xAnimation = parseAnimation(value);
+            // Animation outside trigger block = auto-trigger on load
+            g_styles.button.xAnimation.active = true;
+            if (parseLog) {
+                fprintf(parseLog, "  x-animation: %d -> %d (auto-trigger)\n", 
+                        g_styles.button.xAnimation.initialValue, 
+                        g_styles.button.xAnimation.targetValue);
+                fflush(parseLog);
+            }
+        } else if (key == "y-animation") {
+            g_styles.button.yAnimation = parseAnimation(value);
+            g_styles.button.yAnimation.active = true;
+            if (parseLog) {
+                fprintf(parseLog, "  y-animation: %d -> %d (auto-trigger)\n", 
+                        g_styles.button.yAnimation.initialValue, 
+                        g_styles.button.yAnimation.targetValue);
+                fflush(parseLog);
+            }
+        } else if (key == "width-animation") {
+            g_styles.button.widthAnimation = parseAnimation(value);
+            g_styles.button.widthAnimation.active = true;
+            if (parseLog) {
+                fprintf(parseLog, "  width-animation: %d -> %d (auto-trigger)\n", 
+                        g_styles.button.widthAnimation.initialValue, 
+                        g_styles.button.widthAnimation.targetValue);
+                fflush(parseLog);
+            }
+        } else if (key == "height-animation") {
+            g_styles.button.heightAnimation = parseAnimation(value);
+            g_styles.button.heightAnimation.active = true;
+            if (parseLog) {
+                fprintf(parseLog, "  height-animation: %d -> %d (auto-trigger)\n", 
+                        g_styles.button.heightAnimation.initialValue, 
+                        g_styles.button.heightAnimation.targetValue);
+                fflush(parseLog);
+            }
         }
     }
 
     return true;
+}
+
+// Animation execution engine - update animation state
+void updateAnimation(XRAnimation& anim) {
+    if (!anim.active) {
+        return;
+    }
+    
+    // If first time starting, record start time
+    if (anim.startTime == 0) {
+        anim.startTime = GetTickCount();
+        // Debug output when animation starts
+        char debugMsg[256];
+        snprintf(debugMsg, sizeof(debugMsg), 
+                 "[Animation] Started: %d -> %d (duration: %dms)\n", 
+                 anim.initialValue, anim.targetValue, anim.duration);
+        OutputDebugStringA(debugMsg);
+    }
+    
+    // Calculate elapsed time
+    DWORD currentTime = GetTickCount();
+    DWORD elapsed = currentTime - anim.startTime;
+    
+    // Calculate progress (0.0 - 1.0)
+    anim.progress = static_cast<float>(elapsed) / static_cast<float>(anim.duration);
+    
+    // Limit progress to 0.0-1.0 range
+    if (anim.progress >= 1.0f) {
+        anim.progress = 1.0f;
+        anim.currentValue = anim.targetValue;
+        anim.active = false; // Animation complete
+        // Debug output when animation completes
+        char debugMsg[256];
+        snprintf(debugMsg, sizeof(debugMsg), 
+                 "[Animation] Completed: final value = %d\n", 
+                 anim.currentValue);
+        OutputDebugStringA(debugMsg);
+    } else {
+        // Linear interpolation to calculate current value
+        anim.currentValue = anim.initialValue + 
+            static_cast<int>((anim.targetValue - anim.initialValue) * anim.progress);
+    }
+}
+
+// Update all button animations
+void updateButtonAnimations() {
+    static int frameCount = 0;
+    static FILE* logFile = nullptr;
+    
+    // Open log file on first call
+    if (!logFile) {
+        logFile = fopen("animation_debug.log", "w");
+        if (logFile) {
+            fprintf(logFile, "=== Animation Debug Log ===\n");
+            fflush(logFile);
+        }
+    }
+    
+    frameCount++;
+    
+    // Log button count every 10 frames
+    if (frameCount % 10 == 0 && logFile) {
+        fprintf(logFile, "[Frame %d] Button count: %zu\n", frameCount, g_buttons.size());
+        fflush(logFile);
+    }
+    
+    for (auto& button : g_buttons) {
+        // Update all animations
+        updateAnimation(button.xAnimation);
+        updateAnimation(button.yAnimation);
+        updateAnimation(button.widthAnimation);
+        updateAnimation(button.heightAnimation);
+        
+        // Log animation progress every 10 frames
+        if (frameCount % 10 == 0 && logFile) {
+            fprintf(logFile, "[Frame %d] x-anim: %d->%d prog=%.2f%% active=%d, y-anim: %d->%d prog=%.2f%% active=%d\n",
+                   frameCount, 
+                   button.xAnimation.initialValue, button.xAnimation.targetValue, 
+                   button.xAnimation.progress * 100.0f, button.xAnimation.active,
+                   button.yAnimation.initialValue, button.yAnimation.targetValue,
+                   button.yAnimation.progress * 100.0f, button.yAnimation.active);
+            fprintf(logFile, "  position: x=%d, y=%d, w=%d, h=%d\n",
+                   button.x, button.y, button.width, button.height);
+            fflush(logFile);
+        }
+    }
+}
+
+// Apply animation to button position and size
+void applyButtonAnimation(XRButtonCommand& button) {
+    if (button.xAnimation.active || button.xAnimation.progress > 0.0f) {
+        button.x = button.xAnimation.currentValue;
+    }
+    if (button.yAnimation.active || button.yAnimation.progress > 0.0f) {
+        button.y = button.yAnimation.currentValue;
+    }
+    if (button.widthAnimation.active || button.widthAnimation.progress > 0.0f) {
+        button.width = button.widthAnimation.currentValue;
+    }
+    if (button.heightAnimation.active || button.heightAnimation.progress > 0.0f) {
+        button.height = button.heightAnimation.currentValue;
+    }
 }
 
 void paintRect(HDC dc, const XRRectCommand& rect) {
@@ -227,7 +616,14 @@ void paintRect(HDC dc, const XRRectCommand& rect) {
 void paintText(HDC dc, const XRTextCommand& text) {
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, text.color);
-    TextOutA(dc, text.x, text.y, text.text.c_str(), static_cast<int>(text.text.size()));
+    
+    // Convert to wide string for Unicode support
+    int len = MultiByteToWideChar(CP_UTF8, 0, text.text.c_str(), -1, nullptr, 0);
+    if (len > 0) {
+        std::vector<wchar_t> wstr(len);
+        MultiByteToWideChar(CP_UTF8, 0, text.text.c_str(), -1, wstr.data(), len);
+        TextOutW(dc, text.x, text.y, wstr.data(), len - 1);
+    }
 }
 
 void paintButton(HDC dc, const XRButtonCommand& button) {
@@ -251,7 +647,14 @@ void paintButton(HDC dc, const XRButtonCommand& button) {
 
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, button.style.textColor);
-    DrawTextA(dc, button.text.c_str(), -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    
+    // Convert to wide string for Unicode support
+    int len = MultiByteToWideChar(CP_UTF8, 0, button.text.c_str(), -1, nullptr, 0);
+    if (len > 0) {
+        std::vector<wchar_t> wstr(len);
+        MultiByteToWideChar(CP_UTF8, 0, button.text.c_str(), -1, wstr.data(), len);
+        DrawTextW(dc, wstr.data(), -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
 }
 
 void paintBox(HDC dc, const XRBoxCommand& box) {
@@ -278,7 +681,14 @@ void paintBox(HDC dc, const XRBoxCommand& box) {
     };
     SetBkMode(dc, TRANSPARENT);
     SetTextColor(dc, RGB(0, 0, 0));
-    DrawTextA(dc, box.text.c_str(), -1, &inner, DT_LEFT | DT_TOP | DT_WORDBREAK);
+    
+    // Convert to wide string for Unicode support
+    int len = MultiByteToWideChar(CP_UTF8, 0, box.text.c_str(), -1, nullptr, 0);
+    if (len > 0) {
+        std::vector<wchar_t> wstr(len);
+        MultiByteToWideChar(CP_UTF8, 0, box.text.c_str(), -1, wstr.data(), len);
+        DrawTextW(dc, wstr.data(), -1, &inner, DT_LEFT | DT_TOP | DT_WORDBREAK);
+    }
 
     if (hadClipRegion == 1) {
         SelectClipRgn(dc, oldClipRegion);
@@ -308,7 +718,14 @@ void paintInput(HDC dc, const XRInputCommand& input) {
     if (input.focused) {
         displayText += "|";
     }
-    DrawTextA(dc, displayText.c_str(), -1, &inner, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    
+    // Convert to wide string for Unicode support
+    int len = MultiByteToWideChar(CP_UTF8, 0, displayText.c_str(), -1, nullptr, 0);
+    if (len > 0) {
+        std::vector<wchar_t> wstr(len);
+        MultiByteToWideChar(CP_UTF8, 0, displayText.c_str(), -1, wstr.data(), len);
+        DrawTextW(dc, wstr.data(), -1, &inner, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    }
 }
 
 XRBoxCommand* findBoxById(const std::string& id) {
@@ -360,12 +777,65 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
                 }
             }
             
+            // Check button clicks
+            bool buttonClicked = false;
             for (auto it = g_buttons.rbegin(); it != g_buttons.rend(); ++it) {
                 if (pointInButton(*it, mouseX, mouseY)) {
+                    // Check button-click triggers
+                    for (auto& trigger : it->triggers) {
+                        if (trigger.type == "button-click") {
+                            // Activate animations
+                            it->xAnimation.active = true;
+                            it->xAnimation.startTime = 0;
+                            it->yAnimation.active = true;
+                            it->yAnimation.startTime = 0;
+                            it->widthAnimation.active = true;
+                            it->widthAnimation.startTime = 0;
+                            it->heightAnimation.active = true;
+                            it->heightAnimation.startTime = 0;
+                            break;
+                        }
+                    }
+                    
                     if (it->handler) {
                         it->handler();
                     }
+                    buttonClicked = true;
                     return 0;
+                }
+            }
+            
+            // If no button clicked, check window-click triggers
+            if (!buttonClicked) {
+                for (auto& btn : g_buttons) {
+                    for (auto& trigger : btn.triggers) {
+                        if (trigger.type == "window-click") {
+                            // Check if click is in trigger area
+                            bool inArea = false;
+                            if (trigger.windowClickFullArea) {
+                                inArea = true;  // Any window click
+                            } else {
+                                // Check specific area
+                                inArea = (mouseX >= trigger.windowClickX && 
+                                         mouseX < trigger.windowClickX + trigger.windowClickWidth &&
+                                         mouseY >= trigger.windowClickY && 
+                                         mouseY < trigger.windowClickY + trigger.windowClickHeight);
+                            }
+                            
+                            if (inArea) {
+                                // Activate animations
+                                btn.xAnimation.active = true;
+                                btn.xAnimation.startTime = 0;
+                                btn.yAnimation.active = true;
+                                btn.yAnimation.startTime = 0;
+                                btn.widthAnimation.active = true;
+                                btn.widthAnimation.startTime = 0;
+                                btn.heightAnimation.active = true;
+                                btn.heightAnimation.startTime = 0;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
             break;
@@ -418,6 +888,35 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             break;
         }
         case WM_KEYDOWN: {
+            // Check key-click triggers
+            int vkCode = static_cast<int>(wParam);
+            char keyChar = 0;
+            
+            // Convert VK code to character (A-Z)
+            if (vkCode >= 0x41 && vkCode <= 0x5A) {
+                keyChar = static_cast<char>('A' + (vkCode - 0x41));
+            }
+            
+            if (keyChar != 0) {
+                std::string keyStr(1, keyChar);
+                for (auto& btn : g_buttons) {
+                    for (auto& trigger : btn.triggers) {
+                        if (trigger.type == "key-click" && trigger.keyName == keyStr) {
+                            // Activate animations
+                            btn.xAnimation.active = true;
+                            btn.xAnimation.startTime = 0;
+                            btn.yAnimation.active = true;
+                            btn.yAnimation.startTime = 0;
+                            btn.widthAnimation.active = true;
+                            btn.widthAnimation.startTime = 0;
+                            btn.heightAnimation.active = true;
+                            btn.heightAnimation.startTime = 0;
+                            break;
+                        }
+                    }
+                }
+            }
+            
             if (wParam == VK_BACK) {
                 for (auto& input : g_inputs) {
                     if (input.focused && !input.text.empty()) {
@@ -443,6 +942,9 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             PAINTSTRUCT ps{};
             HDC dc = BeginPaint(hwnd, &ps);
 
+            // Update all animations (execute from top to bottom)
+            updateButtonAnimations();
+
             RECT clientRect{};
             GetClientRect(hwnd, &clientRect);
             int clientWidth = clientRect.right - clientRect.left;
@@ -464,7 +966,9 @@ LRESULT CALLBACK XrWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             for (const auto& input : g_inputs) {
                 paintInput(memoryDc, input);
             }
-            for (const auto& button : g_buttons) {
+            for (auto& button : g_buttons) {
+                // Apply animation to button
+                applyButtonAnimation(button);
                 paintButton(memoryDc, button);
             }
             for (const auto& text : g_texts) {
@@ -570,7 +1074,7 @@ extern "C" int xr_should_close() {
 extern "C" int xr_begin_frame() {
     g_rects.clear();
     g_texts.clear();
-    g_buttons.clear();
+    // Don't clear g_buttons - keep animation state
     return 1;
 }
 
@@ -597,14 +1101,69 @@ extern "C" int xr_draw_text(int x, int y, const char* text, unsigned int color) 
 }
 
 extern "C" int xr_draw_button(int x, int y, int width, int height, const char* text, void (*handler)()) {
+    // Check if button already exists (by initial position)
+    XRButtonCommand* existingButton = nullptr;
+    for (auto& btn : g_buttons) {
+        if (btn.initialX == x && btn.initialY == y) {
+            existingButton = &btn;
+            break;
+        }
+    }
+    
+    if (existingButton) {
+        // Update existing button (keep animation state)
+        existingButton->width = width;
+        existingButton->height = height;
+        existingButton->text = text ? text : "";
+        existingButton->handler = handler;
+        return 1;
+    }
+    
+    // Create new button
     XRButtonCommand command{};
     command.x = x;
     command.y = y;
+    command.initialX = x;  // Save initial position
+    command.initialY = y;  // Save initial position
     command.width = width;
     command.height = height;
     command.text = text ? text : "";
     command.style = g_styles.button;
     command.handler = handler;
+    
+    // Copy animation data from style
+    command.xAnimation = g_styles.button.xAnimation;
+    command.yAnimation = g_styles.button.yAnimation;
+    command.widthAnimation = g_styles.button.widthAnimation;
+    command.heightAnimation = g_styles.button.heightAnimation;
+    command.triggers = g_styles.button.triggers;  // Copy triggers
+    
+    // Debug: log button creation
+    static FILE* buttonLog = nullptr;
+    static int createCount = 0;
+    if (!buttonLog) {
+        buttonLog = fopen("button_create_debug.log", "w");
+        if (buttonLog) {
+            fprintf(buttonLog, "=== Button Creation Debug ===\n");
+            fflush(buttonLog);
+        }
+    }
+    
+    createCount++;
+    if (buttonLog && createCount <= 5) {
+        fprintf(buttonLog, "\n[Button Created #%d] at (%d, %d) size %dx%d\n", createCount, x, y, width, height);
+        fprintf(buttonLog, "  xAnimation: %d -> %d (active=%d)\n", 
+                command.xAnimation.initialValue, command.xAnimation.targetValue, command.xAnimation.active);
+        fprintf(buttonLog, "  yAnimation: %d -> %d (active=%d)\n", 
+                command.yAnimation.initialValue, command.yAnimation.targetValue, command.yAnimation.active);
+        fprintf(buttonLog, "  widthAnimation: %d -> %d (active=%d)\n", 
+                command.widthAnimation.initialValue, command.widthAnimation.targetValue, command.widthAnimation.active);
+        fprintf(buttonLog, "  heightAnimation: %d -> %d (active=%d)\n", 
+                command.heightAnimation.initialValue, command.heightAnimation.targetValue, command.heightAnimation.active);
+        fprintf(buttonLog, "  triggers: %zu\n", command.triggers.size());
+        fflush(buttonLog);
+    }
+    
     g_buttons.push_back(std::move(command));
     return 1;
 }

@@ -19,6 +19,7 @@ bool isKeywordLikeNameToken(TokenType type) {
         case TokenType::KEYWORD_FALSE:
         case TokenType::KEYWORD_PRINT:
         case TokenType::KEYWORD_IMPORT:
+        case TokenType::KEYWORD_PERCENT_IMPORT:
         case TokenType::KEYWORD_INT:
         case TokenType::KEYWORD_LONG:
         case TokenType::KEYWORD_FLOAT:
@@ -96,7 +97,7 @@ std::unique_ptr<Program> Parser::parseProgram() {
     auto program = std::make_unique<Program>();
     
     while (!isAtEnd() && !peek().is(TokenType::END_OF_FILE)) {
-        if (peek().is(TokenType::KEYWORD_IMPORT)) {
+        if (peek().is(TokenType::KEYWORD_IMPORT) || peek().is(TokenType::KEYWORD_PERCENT_IMPORT)) {
             auto imp = parseImportStatement();
             if (imp) {
                 program->addImport(std::move(imp));
@@ -141,14 +142,30 @@ std::unique_ptr<Module> Parser::parseModule() {
     }
     
     std::vector<std::unique_ptr<Function>> functions;
+    std::vector<std::unique_ptr<ImportStatement>> imports;
     
     while (!isAtEnd() && !peek().is(TokenType::PUNCTUATOR_RBRACE)) {
-        auto func = parseFunction();
-        if (func) {
-            functions.push_back(std::move(func));
+        // Support import statements inside module
+        if (peek().is(TokenType::KEYWORD_IMPORT) || peek().is(TokenType::KEYWORD_PERCENT_IMPORT)) {
+            auto imp = parseImportStatement();
+            if (imp) {
+                imports.push_back(std::move(imp));
+            } else {
+                addError("Failed to parse import in module '" + name + "'");
+                return nullptr;
+            }
         } else {
-            addError("Failed to parse function in module '" + name + "' at token: " + peek().toString());
-            return nullptr;
+            auto func = parseFunction();
+            if (func) {
+                // Alpha17: Set block name for the function
+                if (func->ns.empty()) {
+                    func->blockName = name;
+                }
+                functions.push_back(std::move(func));
+            } else {
+                addError("Failed to parse function in module '" + name + "' at token: " + peek().toString());
+                return nullptr;
+            }
         }
     }
     
@@ -157,7 +174,9 @@ std::unique_ptr<Module> Parser::parseModule() {
         return nullptr;
     }
     
-    return std::make_unique<Module>(name, std::move(functions), loc);
+    auto module = std::make_unique<Module>(name, std::move(functions), loc);
+    module->imports = std::move(imports);
+    return module;
 }
 
 std::unique_ptr<WindowStatement> Parser::parseWindowStatement() {
@@ -663,7 +682,7 @@ std::unique_ptr<Function> Parser::parseFunction() {
 std::unique_ptr<Statement> Parser::parseStatement() {
     if (isAtEnd()) return nullptr;
     
-    if (peek().is(TokenType::KEYWORD_IMPORT)) {
+    if (peek().is(TokenType::KEYWORD_IMPORT) || peek().is(TokenType::KEYWORD_PERCENT_IMPORT)) {
         return parseImportStatement();
     } else if (peek().is(TokenType::KEYWORD_PRINT)) {
         return parsePrintStatement();
@@ -702,7 +721,13 @@ std::unique_ptr<Statement> Parser::parseStatement() {
     } else if (peek().is(TokenType::PUNCTUATOR_LBRACE)) {
         return parseBlockStatement();
     } else if (peek().is(TokenType::IDENTIFIER)) {
-        if (peek(1).is(TokenType::PUNCTUATOR_LPAREN) || peek(1).is(TokenType::PUNCTUATOR_COLON)) {
+        // Check for function call patterns:
+        // 1. identifier(  - direct function call
+        // 2. identifier:  - namespace:function() syntax
+        // 3. identifier.  - block.function() syntax
+        if (peek(1).is(TokenType::PUNCTUATOR_LPAREN) || 
+            peek(1).is(TokenType::PUNCTUATOR_COLON) ||
+            peek(1).is(TokenType::PUNCTUATOR_DOT)) {
             auto expr = parseExpression();
             if (!expr) return nullptr;
             return std::make_unique<ExpressionStatement>(std::move(expr), peek().location);
@@ -1156,9 +1181,20 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         std::string name = peek(-1).text;
         SourceLocation loc = peek(-1).location;
         
-        std::string ns;
-        if (consume(TokenType::PUNCTUATOR_COLON)) {
-            ns = name;
+        std::string blockName;
+        
+        // 支持 block.function() 语法（使用点号）
+        if (consume(TokenType::PUNCTUATOR_DOT)) {
+            blockName = name;
+            if (!consume(TokenType::IDENTIFIER)) {
+                addError("Expected function name after block name '.'");
+                return nullptr;
+            }
+            name = peek(-1).text;
+        }
+        // 兼容旧的 ns:name() 语法（使用冒号）
+        else if (consume(TokenType::PUNCTUATOR_COLON)) {
+            blockName = name;
             if (!consume(TokenType::IDENTIFIER)) {
                 addError("Expected function name after namespace ':'");
                 return nullptr;
@@ -1191,10 +1227,10 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
             }
             
             std::unique_ptr<Expression> result;
-            if (ns.empty()) {
+            if (blockName.empty()) {
                 result = std::make_unique<CallExpression>(name, std::move(args), loc);
             } else {
-                result = std::make_unique<CallExpression>(name, ns, std::move(args), loc);
+                result = std::make_unique<CallExpression>(name, blockName, std::move(args), loc);
             }
             return parsePostfix(std::move(result));
         }
@@ -1327,7 +1363,7 @@ std::unique_ptr<Expression> Parser::parsePostfix(std::unique_ptr<Expression> exp
 std::unique_ptr<ImportStatement> Parser::parseImportStatement() {
     SourceLocation loc = peek().location;
     
-    if (!consume(TokenType::KEYWORD_IMPORT)) {
+    if (!consume(TokenType::KEYWORD_IMPORT) && !consume(TokenType::KEYWORD_PERCENT_IMPORT)) {
         return nullptr;
     }
     
@@ -1347,6 +1383,9 @@ std::unique_ptr<ImportStatement> Parser::parseImportStatement() {
         if (ext == ".xfmod") {
             type = ImportType::MOD;
             path = "mods/" + name;
+        } else if (ext == ".xfw") {
+            type = ImportType::XFW;
+            path = "libs/" + name;
         } else {
             type = ImportType::FILE;
             path = name;

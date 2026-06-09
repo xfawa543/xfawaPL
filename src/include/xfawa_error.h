@@ -7,8 +7,60 @@
 #include <fstream>
 #include <sstream>
 #include <memory>
+#include <algorithm>
+#include <cmath>
 
 namespace xfawa {
+
+// Levenshtein Distance Algorithm
+inline int levenshteinDistance(const std::string& s1, const std::string& s2) {
+    int m = static_cast<int>(s1.length());
+    int n = static_cast<int>(s2.length());
+    
+    std::vector<std::vector<int>> dp(m + 1, std::vector<int>(n + 1));
+    
+    for (int i = 0; i <= m; i++) dp[i][0] = i;
+    for (int j = 0; j <= n; j++) dp[0][j] = j;
+    
+    for (int i = 1; i <= m; i++) {
+        for (int j = 1; j <= n; j++) {
+            if (s1[static_cast<size_t>(i - 1)] == s2[static_cast<size_t>(j - 1)]) {
+                dp[i][j] = dp[i - 1][j - 1];
+            } else {
+                dp[i][j] = 1 + std::min({dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]});
+            }
+        }
+    }
+    
+    return dp[m][n];
+}
+
+// Find similar candidates
+inline std::vector<std::string> findSuggestions(const std::string& input, 
+                                                  const std::vector<std::string>& candidates,
+                                                  int maxDistance = 3,
+                                                  int maxSuggestions = 3) {
+    std::vector<std::pair<int, std::string>> distances;
+    
+    for (const auto& candidate : candidates) {
+        int dist = levenshteinDistance(input, candidate);
+        if (dist <= maxDistance) {
+            distances.push_back({dist, candidate});
+        }
+    }
+    
+    std::sort(distances.begin(), distances.end());
+    
+    std::vector<std::string> suggestions;
+    int count = 0;
+    for (const auto& p : distances) {
+        if (count >= maxSuggestions) break;
+        suggestions.push_back(p.second);
+        count++;
+    }
+    
+    return suggestions;
+}
 
 enum class ErrorType {
     SYNTAX,
@@ -42,9 +94,14 @@ struct Diagnostic {
     ErrorSeverity severity;
     SourcePosition position;
     std::string message;
+    std::vector<std::string> suggestions;
     
     Diagnostic(ErrorType t, ErrorSeverity s, const SourcePosition& pos, const std::string& msg)
         : type(t), severity(s), position(pos), message(msg) {}
+    
+    Diagnostic(ErrorType t, ErrorSeverity s, const SourcePosition& pos, const std::string& msg,
+               const std::vector<std::string>& suggs)
+        : type(t), severity(s), position(pos), message(msg), suggestions(suggs) {}
     
     std::string toString(bool showType = true) const {
         std::ostringstream oss;
@@ -66,6 +123,15 @@ struct Diagnostic {
         }
         
         oss << message;
+        
+        // Add suggestions
+        if (!suggestions.empty()) {
+            oss << "\n  Did you mean:\n";
+            for (size_t i = 0; i < suggestions.size(); i++) {
+                oss << "    " << (i + 1) << ". " << suggestions[i];
+                if (i < suggestions.size() - 1) oss << "\n";
+            }
+        }
         
         return oss.str();
     }
@@ -118,6 +184,21 @@ public:
     void addError(ErrorType type, const std::string& message) {
         SourcePosition pos(currentFile, 0, 0);
         diagnostics.push_back(Diagnostic(type, ErrorSeverity::ERR, pos, message));
+        errorCount++;
+    }
+    
+    void addErrorWithSuggestions(ErrorType type, int line, int column, 
+                                  const std::string& message,
+                                  const std::vector<std::string>& suggestions) {
+        SourcePosition pos(currentFile, line, column);
+        diagnostics.push_back(Diagnostic(type, ErrorSeverity::ERR, pos, message, suggestions));
+        errorCount++;
+    }
+    
+    void addErrorWithSuggestions(ErrorType type, const std::string& message,
+                                  const std::vector<std::string>& suggestions) {
+        SourcePosition pos(currentFile, 0, 0);
+        diagnostics.push_back(Diagnostic(type, ErrorSeverity::ERR, pos, message, suggestions));
         errorCount++;
     }
     

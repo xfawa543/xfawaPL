@@ -31,6 +31,7 @@
 #include "xfawa_error.h"
 #include "xfawa_ast_transform.h"
 #include "xfawa_semantic_analyzer.h"
+#include "xfawa_xfw.h"
 
 static int g_debug = 0;
 static bool g_keep_temp = false;
@@ -44,7 +45,7 @@ namespace xfawa {
     int g_debug_global = 0;
 }
 
-const char* COMPILER_VERSION = "1.0.0-a.16";
+const char* COMPILER_VERSION = "1.0.0-a.17";
 const char* MODS_KERNEL_VERSION = "mods-a-1.0.3";
 
 static xfawa::LogLanguage g_log_language = xfawa::LogLanguage::EN;
@@ -56,7 +57,7 @@ static const char* utf8(const char8_t* text) {
 xfawa::ErrorSystem* xfawa::ErrorReporter::instance = nullptr;
 
 std::string readFile(const std::string& path) {
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         if (g_log_language == xfawa::LogLanguage::ZH) {
             std::cerr << utf8(u8"\u9519\u8bef\uff1a\u65e0\u6cd5\u6253\u5f00\u6587\u4ef6 ") << path << std::endl;
@@ -191,6 +192,7 @@ void printConfig(const xfawa::CompilerConfig& config) {
 
 std::vector<std::string> extractModImports(const std::string& source) {
     std::vector<std::string> mods;
+    // Support %import "modname" and %import "modname.xfmod" (exclude .xfw files)
     std::regex importRegex("%import\\s+\"([^\"]+)\"");
     
     std::sregex_iterator it(source.begin(), source.end(), importRegex);
@@ -198,11 +200,33 @@ std::vector<std::string> extractModImports(const std::string& source) {
     
     while (it != end) {
         std::string modName = (*it)[1].str();
+        // Skip .xfw files - they are handled by extractXfwImports
+        if (modName.size() >= 4 && modName.substr(modName.size() - 4) == ".xfw") {
+            ++it;
+            continue;
+        }
         mods.push_back(modName);
         ++it;
     }
     
     return mods;
+}
+
+// Extract xfw library imports
+std::vector<std::string> extractXfwImports(const std::string& source) {
+    std::vector<std::string> libs;
+    std::regex importRegex("%import\\s+\"([^\"]+\\.xfw)\"");
+    
+    std::sregex_iterator it(source.begin(), source.end(), importRegex);
+    std::sregex_iterator end;
+    
+    while (it != end) {
+        std::string libName = (*it)[1].str();
+        libs.push_back(libName);
+        ++it;
+    }
+    
+    return libs;
 }
 
 std::string removeImportStatements(const std::string& source) {
@@ -287,6 +311,39 @@ bool processMods(xfawa::ModsSystem& modsSystem, const std::string& source, std::
         processedSource = publicFuncsCode + processedSource;
         if (g_debug) {
             std::cout << "[debug] Injected functions" << std::endl;
+        }
+    }
+    
+    return true;
+}
+
+// Process xfw library imports
+bool processXfw(xfawa::XfwSystem& xfwSystem, const std::string& source) {
+    std::vector<std::string> xfwImports = extractXfwImports(source);
+    
+    if (xfwImports.empty()) {
+        return true;
+    }
+    
+    if (g_debug) {
+        std::cout << "[debug] Found " << xfwImports.size() << " xfw library import(s)" << std::endl;
+        for (const auto& lib : xfwImports) {
+            std::cout << "[debug]   - " << lib << std::endl;
+        }
+    }
+    
+    for (const auto& libName : xfwImports) {
+        if (!xfwSystem.loadLibrary(libName)) {
+            xfawa::ErrorReporter::get().addModError(0, 0, "Failed to load xfw library: " + libName);
+            for (const auto& err : xfwSystem.getErrors()) {
+                xfawa::ErrorReporter::get().addModError(0, 0, err);
+            }
+            return false;
+        }
+        
+        if (g_debug) {
+            std::cout << "[debug] Loaded xfw library: " << libName << std::endl;
+            std::cout << "[debug]   Exported functions: " << xfwSystem.getExportedFunctions().size() << std::endl;
         }
     }
     
@@ -419,6 +476,14 @@ int main(int argc, char** argv) {
         return 1;
     }
     
+    // Process xfw library imports
+    xfawa::XfwSystem xfwSystem;
+    if (!processXfw(xfwSystem, processedSource)) {
+        xfawa::ErrorReporter::get().printDiagnostics();
+        xfawa::ErrorReporter::cleanup();
+        return 1;
+    }
+    
     if (g_debug && modsSystem.hasModifications()) {
         std::cout << "[debug] Source after mod processing:" << std::endl;
         std::cout << processedSource << std::endl;
@@ -506,6 +571,7 @@ int main(int argc, char** argv) {
     }
     
     xfawa::SemanticAnalyzer semanticAnalyzer;
+    semanticAnalyzer.setXfwSystem(&xfwSystem);
     if (!semanticAnalyzer.analyze(program.get())) {
         for (const auto& error : semanticAnalyzer.getErrors()) {
             xfawa::ErrorReporter::get().addSyntaxError(0, 0, error);
