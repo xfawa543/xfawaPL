@@ -1,0 +1,36 @@
+// Test xfw library functions
+// Demonstrates how to import and use xfw libraries
+
+#test_xfw {
+    %import "math_utils.xfw"
+    %import "str_utils.xfw"
+    
+    fn main() {
+        print("Testing xfw library functions:")
+        
+        // Use math library functions
+        int num = 5
+        int squared = math:square(num)
+        print("Square of 5:")
+        print(squared)
+        
+        int cubed = math:cube(num)
+        print("Cube of 5:")
+        print(cubed)
+        
+        int absolute = math:abs(-10)
+        print("Absolute value of -10:")
+        print(absolute)
+        
+        // Use string library functions
+        string hello = "Hello"
+        string world = "World"
+        string concatenated = str:concat(hello, world)
+        print("Concatenated string:")
+        print(concatenated)
+        
+        string repeated = str:repeat("Hi", 3)
+        print("Repeated string:")
+        print(repeated)
+    }
+}

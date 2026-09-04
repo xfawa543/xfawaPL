@@ -1,0 +1,13 @@
+#first {
+    fn helper() {
+        print("first.helper")
+    }
+}
+
+#second {
+    fn main() {
+        print("Start")
+        first.helper()
+        print("End")
+    }
+}

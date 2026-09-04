@@ -1,0 +1,20 @@
+#apple {
+    fn eat() {
+        print("apple.eat")
+    }
+}
+
+#banana {
+    fn eat() {
+        print("banana.eat")
+    }
+}
+
+#test {
+    fn main() {
+        print("Start")
+        apple.eat()
+        banana.eat()
+        print("End")
+    }
+}

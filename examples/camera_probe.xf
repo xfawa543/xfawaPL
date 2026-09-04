@@ -1,0 +1,25 @@
+#camera_probe {
+    fn main() {
+        window {
+            width: 320
+            height: 240
+            title: "camera probe"
+
+            class World {
+                camera = x3d.camera(
+                    position=(8, 2, 15)
+                    yaw=0
+                    pitch=0
+                    fov=70
+                )
+
+                block_0_0_0 = x3d.box(
+                    position=(0, 0, 0)
+                    size=(1, 1, 1)
+                    color=#7A7A7A
+                    rotation=0
+                )
+            }
+        }
+    }
+}

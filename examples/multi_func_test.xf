@@ -1,0 +1,23 @@
+#apple {
+    fn func1() {
+        print("apple.func1")
+    }
+    
+    fn func2() {
+        print("apple.func2")
+    }
+    
+    fn func3() {
+        print("apple.func3")
+    }
+}
+
+#test {
+    fn main() {
+        print("Test start")
+        apple.func1()
+        apple.func2()
+        apple.func3()
+        print("Test end")
+    }
+}

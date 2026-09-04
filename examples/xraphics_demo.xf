@@ -1,0 +1,32 @@
+#app {
+    fn main() {
+        window {
+            width: 300
+            height: 200
+            title: "xfawa demo"
+            style: "default.xss"
+            color: white
+
+            button {
+                x: 50
+                y: 50
+                width: 120
+                height: 40
+                text: "Hello"
+            }
+
+            class DemoScene {
+                box1 = x3d.box(
+                    position=(0, 0, 0)
+                    size=(1, 1, 1)
+                    color=#FFFFFF
+                )
+                sphere1 = x3d.sphere(
+                    position=(1, 0, 0)
+                    radius=0.5
+                    color=#FF0000
+                )
+            }
+        }
+    }
+}

@@ -1,0 +1,13 @@
+#block1 {
+    fn func1() {
+        print("block1.func1")
+    }
+}
+
+#block2 {
+    fn main() {
+        print("Start")
+        block1.func1()
+        print("End")
+    }
+}

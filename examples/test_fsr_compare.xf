@@ -1,0 +1,85 @@
+#test_fsr_compare {
+    fn main() {
+        window {
+            width: 640
+            height: 480
+            title: "FSR Quality Compare"
+
+            class CompareScene {
+                camera = x3d.camera(
+                    position=(0, 1.5, 7)
+                    yaw=0
+                    pitch=0
+                    fov=70
+                )
+
+                ground = x3d.plane(
+                    position=(0, -0.5, 0)
+                    size=(10, 1, 8)
+                    color=#223344
+                )
+
+                obj1 = x3d.sphere(
+                    position=(-2.5, 0.8, 0)
+                    size=(1.2, 1.2, 1.2)
+                    color=#FF5544
+                )
+
+                obj2 = x3d.torus(
+                    position=(0, 1.0, 0)
+                    size=(1.5, 0.2, 1.5)
+                    color=#44CCFF
+                    rotation=25
+                )
+
+                obj3 = x3d.box(
+                    position=(2.5, 0.6, 0)
+                    size=(1.4, 1.4, 1.4)
+                    color=#44FF88
+                    rotation=35
+                )
+
+                pillar_l = x3d.cylinder(
+                    position=(-1.0, 0.3, -2.0)
+                    size=(0.3, 1.0, 0.3)
+                    color=#888899
+                )
+
+                pillar_r = x3d.cylinder(
+                    position=(1.0, 0.3, -2.0)
+                    size=(0.3, 1.0, 0.3)
+                    color=#888899
+                )
+
+                arch = x3d.capsule(
+                    position=(0, 1.5, -2.0)
+                    size=(0.15, 2.0, 0.15)
+                    color=#FFAA44
+                )
+
+                jewel = x3d.cone(
+                    position=(0, 1.0, 2.0)
+                    size=(0.6, 0.8, 0.6)
+                    color=#FF44AA
+                )
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 620
+                height: 20
+                text: "FSR Quality Test - Toggle HALF/FULL with key 1/2"
+            }
+
+            loop {
+                speed = 0.1
+                if keyboard.w { camera.move.forward(speed) }
+                if keyboard.s { camera.move.backward(speed) }
+                if keyboard.a { camera.move.left(speed) }
+                if keyboard.d { camera.move.right(speed) }
+                camera.look(yaw=mouse.dx, pitch=mouse.dy)
+            }
+        }
+    }
+}

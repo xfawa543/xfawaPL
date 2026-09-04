@@ -1,0 +1,84 @@
+#GuessNumber {
+    fn main() {
+        window {
+            width: 420
+            height: 320
+            title: "Guess Number Game"
+            color: lightblue
+
+            text {
+                x: 100
+                y: 20
+                width: 220
+                height: 30
+                text: "Guess 1-100"
+            }
+
+            box {
+                id: result
+                x: 110
+                y: 60
+                width: 200
+                height: 40
+                text: "Press button to start"
+            }
+
+            button {
+                x: 60
+                y: 120
+                width: 140
+                height: 50
+                text: "Guess 1-25"
+
+                int n = rnd(1, 25)
+                if n <= 5 {
+                    print("Too low!", result)
+                }
+                else if n <= 15 {
+                    print("Close!", result)
+                }
+                else {
+                    print("High!", result)
+                }
+            }
+
+            button {
+                x: 220
+                y: 120
+                width: 140
+                height: 50
+                text: "Guess 1-50"
+
+                int n = rnd(1, 50)
+                if n <= 15 {
+                    print("Low!", result)
+                }
+                else if n <= 35 {
+                    print("Medium!", result)
+                }
+                else {
+                    print("High!", result)
+                }
+            }
+
+            button {
+                x: 140
+                y: 190
+                width: 140
+                height: 50
+                text: "Lucky 100"
+
+                int n = rnd(1, 100)
+                if n == 100 {
+                    print("JACKPOT!", result)
+                }
+                else if n >= 90 {
+                    print("So close!", result)
+                }
+                else {
+                    print("Try again!", result)
+                }
+            }
+        }
+    }
+}

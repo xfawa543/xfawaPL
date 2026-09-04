@@ -1,0 +1,81 @@
+#test_primitive_tower {
+    fn main() {
+        window {
+            width: 800
+            height: 600
+            title: "Primitive Tower"
+
+            class Tower {
+                camera = x3d.camera(
+                    position=(0, 3, 7)
+                    yaw=0
+                    pitch=5
+                    fov=65
+                )
+
+                base = x3d.plane(
+                    position=(0, -0.5, 0)
+                    size=(6, 1, 6)
+                    color=#223344
+                )
+
+                layer1 = x3d.box(
+                    position=(0, 0.5, 0)
+                    size=(2.0, 0.8, 2.0)
+                    color=#FF6644
+                    rotation=0
+                )
+
+                layer2 = x3d.cylinder(
+                    position=(0, 1.5, 0)
+                    size=(1.2, 0.6, 1.2)
+                    color=#44BBFF
+                )
+
+                layer3 = x3d.sphere(
+                    position=(0, 2.8, 0)
+                    size=(1.0, 1.0, 1.0)
+                    color=#44FF88
+                )
+
+                layer4 = x3d.torus(
+                    position=(0, 4.0, 0)
+                    size=(0.8, 0.15, 0.8)
+                    color=#FFCC44
+                    rotation=30
+                )
+
+                top = x3d.capsule(
+                    position=(0, 5.2, 0)
+                    size=(0.3, 1.0, 0.3)
+                    color=#FF44AA
+                )
+
+                flag = x3d.cone(
+                    position=(0, 6.5, 0)
+                    size=(0.5, 0.8, 0.5)
+                    color=#FF4444
+                )
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 780
+                height: 20
+                text: "Primitive Tower - WASD Move | All 7 SDF types stacked"
+            }
+
+            loop {
+                speed = 0.08
+                if keyboard.w { camera.move.forward(speed) }
+                if keyboard.s { camera.move.backward(speed) }
+                if keyboard.a { camera.move.left(speed) }
+                if keyboard.d { camera.move.right(speed) }
+                if keyboard.space { camera.move.up(speed) }
+                if keyboard.ctrl { camera.move.down(speed) }
+                camera.look(yaw=mouse.dx, pitch=mouse.dy)
+            }
+        }
+    }
+}

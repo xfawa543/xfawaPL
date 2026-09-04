@@ -1,0 +1,78 @@
+#api_camera_loop_test {
+    fn main() {
+        window {
+            width: 800
+            height: 600
+            title: "XFAWA api.txt - Camera + Input + Loop"
+
+            class Scene {
+                camera = x3d.camera(
+                    position=(0, 1.6, 5)
+                    yaw=0
+                    pitch=0
+                    fov=75
+                )
+
+                floor = x3d.plane(
+                    position=(0, 0, 0)
+                    size=(8, 1, 8)
+                    color=#4488FF
+                    rotation=0
+                )
+
+                pillar = x3d.cylinder(
+                    position=(2, 0, 0)
+                    size=(1, 2, 1)
+                    color=#FF8800
+                    rotation=0
+                )
+
+                orb = x3d.sphere(
+                    position=(-2, 0, 0)
+                    size=(1, 1, 1)
+                    color=#00FF00
+                    rotation=0
+                )
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 780
+                height: 20
+                text: "WASD move | Mouse look | Space up | Ctrl down | Shift run"
+            }
+
+            loop {
+                if keyboard.w {
+                    camera.move.forward(0.1)
+                }
+
+                if keyboard.s {
+                    camera.move.backward(0.1)
+                }
+
+                if keyboard.a {
+                    camera.move.left(0.1)
+                }
+
+                if keyboard.d {
+                    camera.move.right(0.1)
+                }
+
+                if keyboard.space {
+                    camera.move.up(0.1)
+                }
+
+                if keyboard.ctrl {
+                    camera.move.down(0.1)
+                }
+
+                camera.look(
+                    yaw = mouse.dx,
+                    pitch = mouse.dy
+                )
+            }
+        }
+    }
+}

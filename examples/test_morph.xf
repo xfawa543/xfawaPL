@@ -1,0 +1,61 @@
+#test_morph {
+    fn main() {
+        window {
+            width: 800
+            height: 600
+            title: "Smooth Morph"
+
+            class MorphScene {
+                camera = x3d.camera(
+                    position=(0, 1, 5)
+                    yaw=0
+                    pitch=0
+                    fov=70
+                )
+
+                ground = x3d.plane(
+                    position=(0, -0.8, 0)
+                    size=(8, 1, 4)
+                    color=#1A2A2A
+                )
+
+                shape_a = x3d.box(
+                    position=(-1.5, 0.5, 0)
+                    size=(1.2, 1.2, 1.2)
+                    color=#FF8844
+                    rotation=20
+                )
+
+                shape_b = x3d.sphere(
+                    position=(1.5, 0.5, 0)
+                    size=(0.9, 0.9, 0.9)
+                    color=#44CCFF
+                )
+
+                blended = x3d.torus(
+                    position=(0, 1.0, 0)
+                    size=(1.0, 0.2, 1.0)
+                    color=#FF44AA
+                    rotation=45
+                )
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 780
+                height: 20
+                text: "Smooth Morph | Primitive showcase with rotation animation"
+            }
+
+            loop {
+                speed = 0.08
+                if keyboard.w { camera.move.forward(speed) }
+                if keyboard.s { camera.move.backward(speed) }
+                if keyboard.a { camera.move.left(speed) }
+                if keyboard.d { camera.move.right(speed) }
+                camera.look(yaw=mouse.dx, pitch=mouse.dy)
+            }
+        }
+    }
+}

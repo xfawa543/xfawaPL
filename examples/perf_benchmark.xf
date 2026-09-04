@@ -1,0 +1,102 @@
+#perf_test {
+    fn main() {
+        print("=== xfawaPL Performance Benchmark ===")
+        print("Version: 1.0.0-a.18")
+        print("Rendering: CPU SDF Ray Marching + OpenGL Backend")
+        print("Architecture: IRendererBackend -> OpenGLBackend")
+        print("Features: Frustum Culling, Bounding Sphere, Forceinline")
+        print("Starting benchmark...")
+
+        window {
+            width: 1280
+            height: 720
+            title: "xfawaPL 1.0.0-a.18 Performance Benchmark"
+
+            class Scene3D {
+                camera = x3d.camera(
+                    position=(0, 5, 12)
+                    yaw=0
+                    pitch=15
+                    fov=60
+                )
+
+                box1 = x3d.box(
+                    position=(0, 0, 0)
+                    size=(2, 2, 2)
+                    color=#FF8800
+                )
+                sphere1 = x3d.sphere(
+                    position=(4, 0, 0)
+                    size=(2, 2, 2)
+                    color=#00FF00
+                )
+                cylinder1 = x3d.cylinder(
+                    position=(-4, 0, 0)
+                    size=(2, 2, 2)
+                    color=#0088FF
+                )
+                capsule1 = x3d.capsule(
+                    position=(0, 4, 0)
+                    size=(2, 2, 2)
+                    color=#FF00FF
+                )
+                cone1 = x3d.cone(
+                    position=(0, -4, 0)
+                    size=(2, 2, 2)
+                    color=#FFFF00
+                )
+                torus1 = x3d.torus(
+                    position=(4, 4, 0)
+                    size=(2, 2, 2)
+                    color=#00FFFF
+                )
+                plane1 = x3d.plane(
+                    position=(0, -2, 0)
+                    size=(20, 20, 20)
+                    color=#888888
+                )
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 1260
+                height: 20
+                text: "xfawaPL 1.0.0-a.18 | IRendererBackend + OpenGLBackend | Frustum Culling | 7 Objects"
+            }
+
+            loop {
+                speed = 0.12
+                if keyboard.shift {
+                    speed = 0.3
+                }
+
+                if keyboard.w {
+                    camera.move.forward(speed)
+                }
+                if keyboard.s {
+                    camera.move.backward(speed)
+                }
+                if keyboard.a {
+                    camera.move.left(speed)
+                }
+                if keyboard.d {
+                    camera.move.right(speed)
+                }
+                if keyboard.space {
+                    camera.move.up(speed)
+                }
+                if keyboard.shift {
+                    camera.move.down(speed)
+                }
+
+                camera.look(
+                    yaw = mouse.dx,
+                    pitch = mouse.dy
+                )
+            }
+        }
+
+        print("Benchmark window closed.")
+    }
+}

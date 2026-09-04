@@ -1,0 +1,37 @@
+#apple {
+    fn sleep() {
+        print("apple.sleep called")
+    }
+    
+    fn eat() {
+        print("apple.eat called")
+    }
+    
+    fn run() {
+        print("apple.run called")
+    }
+}
+
+#banana {
+    fn eat() {
+        print("banana.eat called")
+    }
+    
+    fn sleep() {
+        print("banana.sleep called")
+    }
+}
+
+#test {
+    fn main() {
+        print("=== Alpha17 Test ===")
+        print("Testing apple block:")
+        apple.sleep()
+        apple.eat()
+        apple.run()
+        print("Testing banana block:")
+        banana.eat()
+        banana.sleep()
+        print("Test completed!")
+    }
+}

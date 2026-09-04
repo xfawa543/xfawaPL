@@ -1,0 +1,76 @@
+#scene_cube_gallery {
+    fn main() {
+        window {
+            width: 800
+            height: 600
+            title: "3D Cube Gallery"
+
+            class Gallery {
+                camera = x3d.camera(
+                    position=(0, 1.5, 6)
+                    yaw=0
+                    pitch=0
+                    fov=70
+                )
+
+                floor = x3d.plane(
+                    position=(0, -0.5, 0)
+                    size=(10, 1, 6)
+                    color=#334455
+                )
+
+                cube_r = x3d.box(
+                    position=(-2, 0.5, 0)
+                    size=(1, 1, 1)
+                    color=#FF4444
+                    rotation=15
+                )
+
+                cube_g = x3d.box(
+                    position=(0, 0.5, 0)
+                    size=(1, 1, 1)
+                    color=#44FF44
+                    rotation=30
+                )
+
+                cube_b = x3d.box(
+                    position=(2, 0.5, 0)
+                    size=(1, 1, 1)
+                    color=#4488FF
+                    rotation=45
+                )
+
+                sphere = x3d.sphere(
+                    position=(0, 1.0, -2)
+                    size=(0.6, 0.6, 0.6)
+                    color=#FFDD00
+                )
+
+                light = x3d.cylinder(
+                    position=(0, 3, -1)
+                    size=(0.1, 0.5, 0.1)
+                    color=#FFFFFF
+                )
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 780
+                height: 20
+                text: "WASD Move | Mouse Look | Cube Gallery"
+            }
+
+            loop {
+                speed = 0.1
+                if keyboard.w { camera.move.forward(speed) }
+                if keyboard.s { camera.move.backward(speed) }
+                if keyboard.a { camera.move.left(speed) }
+                if keyboard.d { camera.move.right(speed) }
+                if keyboard.space { camera.move.up(speed) }
+                if keyboard.ctrl { camera.move.down(speed) }
+                camera.look(yaw=mouse.dx, pitch=mouse.dy)
+            }
+        }
+    }
+}

@@ -1,0 +1,169 @@
+#Calculator {
+    fn main() {
+        window {
+            width: 350
+            height: 450
+            title: "Calculator"
+            color: lightgray
+
+            text {
+                x: 100
+                y: 10
+                width: 150
+                height: 25
+                text: "Simple Calculator"
+            }
+
+            box {
+                id: display
+                x: 25
+                y: 45
+                width: 300
+                height: 50
+                text: "0"
+            }
+
+            button {
+                x: 25
+                y: 110
+                width: 70
+                height: 50
+                text: "RND"
+
+                int n = rnd(1, 100)
+                print(n, display)
+            }
+
+            button {
+                x: 105
+                y: 110
+                width: 70
+                height: 50
+                text: "x2"
+
+                int n = rnd(1, 50)
+                int doubled = n + n
+                print(doubled, display)
+            }
+
+            button {
+                x: 185
+                y: 110
+                width: 70
+                height: 50
+                text: "x3"
+
+                int n = rnd(1, 30)
+                int tripled = n + n + n
+                print(tripled, display)
+            }
+
+            button {
+                x: 265
+                y: 110
+                width: 60
+                height: 50
+                text: "CLR"
+
+                print("0", display)
+            }
+
+            button {
+                x: 25
+                y: 175
+                width: 70
+                height: 50
+                text: "+10"
+
+                int n = rnd(1, 50)
+                int result = n + 10
+                print(result, display)
+            }
+
+            button {
+                x: 105
+                y: 175
+                width: 70
+                height: 50
+                text: "-10"
+
+                int n = rnd(20, 100)
+                int result = n - 10
+                print(result, display)
+            }
+
+            button {
+                x: 185
+                y: 175
+                width: 70
+                height: 50
+                text: "x2"
+
+                int n = rnd(1, 25)
+                int result = n + n
+                print(result, display)
+            }
+
+            button {
+                x: 265
+                y: 175
+                width: 60
+                height: 50
+                text: "/2"
+
+                int n = rnd(2, 50)
+                int result = n / 2
+                print(result, display)
+            }
+
+            box {
+                id: history
+                x: 25
+                y: 240
+                width: 300
+                height: 80
+                text: "History: None"
+            }
+
+            button {
+                x: 25
+                y: 335
+                width: 140
+                height: 45
+                text: "Sum Two"
+
+                int a = rnd(1, 50)
+                int b = rnd(1, 50)
+                int sum = a + b
+                print(sum, display)
+                print(a + b, history)
+            }
+
+            button {
+                x: 185
+                y: 335
+                width: 140
+                height: 45
+                text: "Multiply"
+
+                int a = rnd(1, 10)
+                int b = rnd(1, 10)
+                int prod = a * b
+                print(prod, display)
+                print(a * b, history)
+            }
+
+            button {
+                x: 100
+                y: 395
+                width: 150
+                height: 40
+                text: "Random All"
+
+                int a = rnd(1, 100)
+                print(a, display)
+                print("Generated: " + a, history)
+            }
+        }
+    }
+}

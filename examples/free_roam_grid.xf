@@ -1,0 +1,79 @@
+#free_roam_grid {
+    fn main() {
+        window {
+            width: 960
+            height: 640
+            title: "XFAWA Free Roam – Checkerboard Grid (WASD+Mouse)"
+
+            class World {
+                camera = x3d.camera(
+                    position=(0, 3, 10)
+                    yaw=0
+                    pitch=-10
+                    fov=75
+                )
+
+                // simple ground plane (invisible, just for reference)
+                ground = x3d.plane(
+                    position=(0, 0, 0)
+                    size=(20, 1, 20)
+                    color=#222222
+                )
+
+                // checkerboard grid – 5x5 squares (size 2×2 each, y=0.01 to avoid z‑fighting)
+                // colors alternate between light gray and dark gray.
+                // The positions are centered around the origin.
+                // Row 0 (z = -4 .. +4)
+                plane00 = x3d.plane(position=(-4, 0.01, -4) size=(2,1,2) color=#CCCCCC)
+                plane01 = x3d.plane(position=(-2, 0.01, -4) size=(2,1,2) color=#888888)
+                plane02 = x3d.plane(position=(0, 0.01, -4)  size=(2,1,2) color=#CCCCCC)
+                plane03 = x3d.plane(position=(2, 0.01, -4)  size=(2,1,2) color=#888888)
+                plane04 = x3d.plane(position=(4, 0.01, -4)  size=(2,1,2) color=#CCCCCC)
+                // Row 1 (z = -2)
+                plane10 = x3d.plane(position=(-4, 0.01, -2) size=(2,1,2) color=#888888)
+                plane11 = x3d.plane(position=(-2, 0.01, -2) size=(2,1,2) color=#CCCCCC)
+                plane12 = x3d.plane(position=(0, 0.01, -2)  size=(2,1,2) color=#888888)
+                plane13 = x3d.plane(position=(2, 0.01, -2)  size=(2,1,2) color=#CCCCCC)
+                plane14 = x3d.plane(position=(4, 0.01, -2)  size=(2,1,2) color=#888888)
+                // Row 2 (z = 0)
+                plane20 = x3d.plane(position=(-4, 0.01, 0) size=(2,1,2) color=#CCCCCC)
+                plane21 = x3d.plane(position=(-2, 0.01, 0) size=(2,1,2) color=#888888)
+                plane22 = x3d.plane(position=(0, 0.01, 0)  size=(2,1,2) color=#CCCCCC)
+                plane23 = x3d.plane(position=(2, 0.01, 0)  size=(2,1,2) color=#888888)
+                plane24 = x3d.plane(position=(4, 0.01, 0)  size=(2,1,2) color=#CCCCCC)
+                // Row 3 (z = +2)
+                plane30 = x3d.plane(position=(-4, 0.01, 2) size=(2,1,2) color=#888888)
+                plane31 = x3d.plane(position=(-2, 0.01, 2) size=(2,1,2) color=#CCCCCC)
+                plane32 = x3d.plane(position=(0, 0.01, 2)  size=(2,1,2) color=#888888)
+                plane33 = x3d.plane(position=(2, 0.01, 2)  size=(2,1,2) color=#CCCCCC)
+                plane34 = x3d.plane(position=(4, 0.01, 2)  size=(2,1,2) color=#888888)
+                // Row 4 (z = +4)
+                plane40 = x3d.plane(position=(-4, 0.01, 4) size=(2,1,2) color=#CCCCCC)
+                plane41 = x3d.plane(position=(-2, 0.01, 4) size=(2,1,2) color=#888888)
+                plane42 = x3d.plane(position=(0, 0.01, 4)  size=(2,1,2) color=#CCCCCC)
+                plane43 = x3d.plane(position=(2, 0.01, 4)  size=(2,1,2) color=#888888)
+                plane44 = x3d.plane(position=(4, 0.01, 4)  size=(2,1,2) color=#CCCCCC)
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 940
+                height: 20
+                text: "WASD Move | Mouse Look | Shift=Run | Space=Up | Ctrl=Down"
+            }
+
+            loop {
+                speed = 0.12
+                if keyboard.shift { speed = 0.3 }
+                if keyboard.w { camera.move.forward(speed) }
+                if keyboard.s { camera.move.backward(speed) }
+                if keyboard.a { camera.move.left(speed) }
+                if keyboard.d { camera.move.right(speed) }
+                if keyboard.space { camera.move.up(speed) }
+                if keyboard.ctrl { camera.move.down(speed) }
+                camera.look(yaw=mouse.dx, pitch=mouse.dy)
+            }
+        }
+    }
+}

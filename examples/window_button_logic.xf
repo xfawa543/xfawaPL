@@ -1,0 +1,68 @@
+#app {
+    fn main() {
+        window {
+            width: 520
+            height: 360
+            title: "xfawa button logic"
+            color: cyan
+
+            text {
+                x: 32
+                y: 12
+                width: 260
+                height: 24
+                text: "button logic test"
+            }
+
+            box {
+                id: logbox
+                x: 280
+                y: 32
+                width: 200
+                height: 180
+                text: "log start"
+            }
+
+            button {
+                x: 32
+                y: 32
+                width: 180
+                height: 44
+                text: "Run logic"
+
+                int a = 3
+                int b = 4
+                if a < b {
+                    print(a + b, logbox)
+                }
+                else {
+                    print(a)
+                }
+            }
+
+            button {
+                x: 32
+                y: 96
+                width: 220
+                height: 44
+                text: "Branch again"
+
+                int i = 0
+                while (i < 2) {
+                    print(i, logbox)
+                    i = i + 1
+                }
+            }
+
+            button {
+                x: 32
+                y: 160
+                width: 220
+                height: 44
+                text: "Popup print"
+
+                print(999)
+            }
+        }
+    }
+}

@@ -1,0 +1,25 @@
+#apple {
+    fn eat() {
+        print("apple.eat")
+    }
+    
+    fn sleep() {
+        print("apple.sleep")
+    }
+}
+
+#banana {
+    fn eat() {
+        print("banana.eat")
+    }
+}
+
+#test {
+    fn main() {
+        print("Start")
+        apple.eat()
+        apple.sleep()
+        banana.eat()
+        print("End")
+    }
+}

@@ -1,0 +1,40 @@
+#TestLargeNumbers {
+    fn main() {
+        int a = 999999999
+        int b = 1000000000
+        
+        if a < b {
+            print("a is smaller than b")
+        } else {
+            print("a is not smaller than b")
+        }
+        
+        if b > 999999998 {
+            print("b is very large")
+        }
+        
+        int c = 2147483647
+        if c == 2147483647 {
+            print("c is max int32")
+        }
+        
+        int d = 100
+        int e = 200
+        int f = 300
+        if d < e {
+            if e < f {
+                print("nested if works")
+            }
+        }
+        
+        if d == 100 {
+            print("d is 100")
+        } else if d == 200 {
+            print("d is 200")
+        } else if d == 300 {
+            print("d is 300")
+        } else {
+            print("d is something else")
+        }
+    }
+}

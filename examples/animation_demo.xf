@@ -1,0 +1,59 @@
+// Simple animation test without window
+// This tests the animation system directly
+
+#animation_demo {
+    fn main() {
+        // Print BEFORE creating window (so we can see output)
+        print("=== Animation System Test ===")
+        print("Test 1: Animation Parameters")
+        print("  Initial position: (10, 80)")
+        print("  Target position: (200, 150)")
+        print("  Initial size: 100x40")
+        print("  Target size: 300x80")
+        print("Test 2: Animation Timing")
+        print("  Duration: 1000ms (1 second)")
+        print("Test 3: Creating animated window...")
+        
+        // Create window with animation
+        window {
+            width: 600
+            height: 400
+            title: "Animation Demo"
+            color: white
+            style: "animation_test.xss"
+            
+            // Reference text
+            text {
+                x: 10
+                y: 10
+                text: "Animation Demo - Watch the button move!"
+            }
+            
+            // Animated button
+            button {
+                x: 10
+                y: 80
+                width: 100
+                height: 40
+                text: "Click Me"
+                print("Button clicked!")
+            }
+            
+            // Position markers
+            text {
+                x: 200
+                y: 10
+                text: "Target X=200"
+            }
+            
+            text {
+                x: 10
+                y: 150
+                text: "Target Y=150"
+            }
+        }
+        
+        // Print AFTER window closes
+        print("Animation test completed!")
+    }
+}

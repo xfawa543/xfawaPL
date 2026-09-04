@@ -1,0 +1,13 @@
+#a {
+    fn f1() {
+        print("a.f1")
+    }
+}
+
+#b {
+    fn main() {
+        print("start")
+        a.f1()
+        print("end")
+    }
+}

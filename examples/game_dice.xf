@@ -1,0 +1,136 @@
+#DiceGame {
+    fn main() {
+        window {
+            width: 450
+            height: 400
+            title: "Dice Roller"
+            color: lightyellow
+
+            text {
+                x: 150
+                y: 15
+                width: 150
+                height: 30
+                text: "Dice Roller"
+            }
+
+            box {
+                id: dice1
+                x: 80
+                y: 60
+                width: 80
+                height: 60
+                text: "?"
+            }
+
+            box {
+                id: dice2
+                x: 180
+                y: 60
+                width: 80
+                height: 60
+                text: "?"
+            }
+
+            box {
+                id: dice3
+                x: 280
+                y: 60
+                width: 80
+                height: 60
+                text: "?"
+            }
+
+            box {
+                id: total
+                x: 150
+                y: 140
+                width: 150
+                height: 40
+                text: "Total: 0"
+            }
+
+            button {
+                x: 125
+                y: 200
+                width: 200
+                height: 50
+                text: "Roll All Dice"
+
+                int d1 = rnd(1, 6)
+                int d2 = rnd(1, 6)
+                int d3 = rnd(1, 6)
+                int sum = d1 + d2 + d3
+
+                print(d1, dice1)
+                print(d2, dice2)
+                print(d3, dice3)
+                print(sum, total)
+            }
+
+            box {
+                id: result
+                x: 75
+                y: 270
+                width: 300
+                height: 40
+                text: "Roll to play!"
+            }
+
+            button {
+                x: 50
+                y: 330
+                width: 160
+                height: 45
+                text: "Check High"
+
+                int d1 = rnd(1, 6)
+                int d2 = rnd(1, 6)
+                int d3 = rnd(1, 6)
+                int sum = d1 + d2 + d3
+
+                print(d1, dice1)
+                print(d2, dice2)
+                print(d3, dice3)
+                print(sum, total)
+
+                if sum >= 15 {
+                    print("HIGH ROLL!", result)
+                }
+                else {
+                    print("Not high enough", result)
+                }
+            }
+
+            button {
+                x: 240
+                y: 330
+                width: 160
+                height: 45
+                text: "Check Triple"
+
+                int d1 = rnd(1, 6)
+                int d2 = rnd(1, 6)
+                int d3 = rnd(1, 6)
+                int sum = d1 + d2 + d3
+
+                print(d1, dice1)
+                print(d2, dice2)
+                print(d3, dice3)
+                print(sum, total)
+
+                if d1 == d2 {
+                    if d2 == d3 {
+                        print("TRIPLE!", result)
+                    }
+                    else {
+                        print("Pair only", result)
+                    }
+                }
+                else {
+                    print("No match", result)
+                }
+            }
+        }
+    }
+}

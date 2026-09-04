@@ -1,0 +1,105 @@
+#test_grid_world {
+    fn main() {
+        window {
+            width: 800
+            height: 600
+            title: "Grid World"
+
+            class Grid {
+                camera = x3d.camera(
+                    position=(0, 4, 8)
+                    yaw=0
+                    pitch=10
+                    fov=65
+                )
+
+                ground = x3d.plane(
+                    position=(0, -0.5, 0)
+                    size=(12, 1, 12)
+                    color=#1A2233
+                )
+
+                center = x3d.sphere(
+                    position=(0, 0.8, 0)
+                    size=(0.8, 0.8, 0.8)
+                    color=#FFDD44
+                )
+
+                pillar_n = x3d.cylinder(
+                    position=(0, 0.5, -3)
+                    size=(0.3, 1.5, 0.3)
+                    color=#44BBFF
+                )
+
+                pillar_s = x3d.cylinder(
+                    position=(0, 0.5, 3)
+                    size=(0.3, 1.5, 0.3)
+                    color=#44BBFF
+                )
+
+                pillar_e = x3d.cylinder(
+                    position=(3, 0.5, 0)
+                    size=(0.3, 1.5, 0.3)
+                    color=#44BBFF
+                )
+
+                pillar_w = x3d.cylinder(
+                    position=(-3, 0.5, 0)
+                    size=(0.3, 1.5, 0.3)
+                    color=#44BBFF
+                )
+
+                cap_nw = x3d.box(
+                    position=(-2, 0.3, -2)
+                    size=(0.5, 0.5, 0.5)
+                    color=#FF6644
+                    rotation=30
+                )
+
+                cap_ne = x3d.sphere(
+                    position=(2, 0.5, -2)
+                    size=(0.4, 0.4, 0.4)
+                    color=#44FF88
+                )
+
+                cap_sw = x3d.capsule(
+                    position=(-2, 0.5, 2)
+                    size=(0.2, 0.6, 0.2)
+                    color=#FF44AA
+                )
+
+                cap_se = x3d.cone(
+                    position=(2, 0.5, 2)
+                    size=(0.4, 0.7, 0.4)
+                    color=#FFCC44
+                )
+
+                floater = x3d.torus(
+                    position=(0, 2.5, 0)
+                    size=(1.8, 0.12, 1.8)
+                    color=#44CCFF
+                    rotation=40
+                )
+            }
+
+            text {
+                x: 10
+                y: 10
+                width: 780
+                height: 20
+                text: "Grid World | WASD Move | Multiple primitives in grid layout"
+            }
+
+            loop {
+                speed = 0.1
+                if keyboard.w { camera.move.forward(speed) }
+                if keyboard.s { camera.move.backward(speed) }
+                if keyboard.a { camera.move.left(speed) }
+                if keyboard.d { camera.move.right(speed) }
+                if keyboard.space { camera.move.up(speed) }
+                if keyboard.ctrl { camera.move.down(speed) }
+                camera.look(yaw=mouse.dx, pitch=mouse.dy)
+            }
+        }
+    }
+}

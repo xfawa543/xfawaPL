@@ -1,0 +1,6 @@
+#test_comment {
+  fn main() {
+    print("测试成功") // 这是一行注释
+    print("注释测试")
+  }
+}

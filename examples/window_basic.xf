@@ -1,0 +1,10 @@
+#app {
+    fn main() {
+        window {
+            width: 420
+            height: 260
+            title: "xfawa window"
+            color: red
+        }
+    }
+}

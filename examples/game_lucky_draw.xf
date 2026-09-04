@@ -1,0 +1,101 @@
+#LuckyDraw {
+    fn main() {
+        window {
+            width: 420
+            height: 380
+            title: "Lucky Draw"
+            color: pink
+
+            text {
+                x: 130
+                y: 15
+                width: 160
+                height: 30
+                text: "Lucky Draw"
+            }
+
+            box {
+                id: prize
+                x: 60
+                y: 60
+                width: 300
+                height: 80
+                text: "Press to draw!"
+            }
+
+            button {
+                x: 110
+                y: 160
+                width: 200
+                height: 60
+                text: "SPIN!"
+
+                int luck = rnd(1, 100)
+
+                if luck <= 5 {
+                    print("GRAND PRIZE!", prize)
+                }
+                else if luck <= 15 {
+                    print("First Prize!", prize)
+                }
+                else if luck <= 35 {
+                    print("Second Prize!", prize)
+                }
+                else if luck <= 60 {
+                    print("Third Prize!", prize)
+                }
+                else {
+                    print("Try Again!", prize)
+                }
+            }
+
+            box {
+                id: stats
+                x: 60
+                y: 240
+                width: 300
+                height: 50
+                text: "Prize Pool: 5% Grand"
+            }
+
+            button {
+                x: 60
+                y: 310
+                width: 140
+                height: 45
+                text: "Quick x10"
+
+                int i = 0
+                while (i < 3) {
+                    int luck = rnd(1, 100)
+                    if luck <= 5 {
+                        print("WIN!", prize)
+                    }
+                    else {
+                        print("Miss...", prize)
+                    }
+                    i = i + 1
+                }
+            }
+
+            button {
+                x: 220
+                y: 310
+                width: 140
+                height: 45
+                text: "Super Spin"
+
+                int luck = rnd(1, 1000)
+                if luck <= 1 {
+                    print("MEGA JACKPOT!", prize)
+                }
+                else if luck <= 50 {
+                    print("Big Winner!", prize)
+                }
+                else {
+                    print("Better luck!", prize)
+                }
+            }
+        }
+    }
+}

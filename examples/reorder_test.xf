@@ -1,0 +1,35 @@
+#xtest {
+    fn main() {
+        print("Start")
+        xapple.eat()
+        xapple.sleep()
+        xapple.run()
+        xbanana.eat()
+        xbanana.sleep()
+        print("End")
+    }
+}
+
+#xapple {
+    fn eat() {
+        print("xapple.eat")
+    }
+    
+    fn sleep() {
+        print("xapple.sleep")
+    }
+    
+    fn run() {
+        print("xapple.run")
+    }
+}
+
+#xbanana {
+    fn eat() {
+        print("xbanana.eat")
+    }
+    
+    fn sleep() {
+        print("xbanana.sleep")
+    }
+}

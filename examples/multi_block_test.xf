@@ -1,0 +1,25 @@
+#apple {
+    fn funcA() {
+        print("apple.funcA")
+    }
+    
+    fn funcB() {
+        print("apple.funcB")
+    }
+}
+
+#banana {
+    fn funcC() {
+        print("banana.funcC")
+    }
+}
+
+#test {
+    fn main() {
+        print("Start")
+        apple.funcA()
+        apple.funcB()
+        banana.funcC()
+        print("End")
+    }
+}

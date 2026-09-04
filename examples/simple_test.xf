@@ -1,0 +1,23 @@
+#apple {
+    fn eat() {
+        print("apple.eat called")
+    }
+}
+
+#banana {
+    fn eat() {
+        print("banana.eat called")
+    }
+}
+
+#test {
+    fn main() {
+        print("Test 1: Call apple.eat()")
+        apple.eat()
+        
+        print("Test 2: Call banana.eat()")
+        banana.eat()
+        
+        print("Done")
+    }
+}

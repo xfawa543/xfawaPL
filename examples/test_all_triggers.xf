@@ -1,0 +1,64 @@
+#test_all_triggers {
+    fn main() {
+        print("测试所有动画触发器")
+
+        window {
+            width: 800
+            height: 600
+            title: "动画触发器完整测试"
+            color: white
+            style: "test_all_triggers.xss"
+
+            text {
+                x: 10
+                y: 10
+                text: "测试说明："
+            }
+
+            text {
+                x: 10
+                y: 30
+                text: "1. 点击窗口任意位置触发第一个按钮动画"
+            }
+
+            text {
+                x: 10
+                y: 50
+                text: "2. 按A键触发第二个按钮动画"
+            }
+
+            text {
+                x: 10
+                y: 70
+                text: "3. 点击按钮本身触发动画"
+            }
+
+            button {
+                x: 10
+                y: 100
+                width: 120
+                height: 40
+                text: "窗口点击触发"
+                print("按钮1点击")
+            }
+
+            button {
+                x: 10
+                y: 160
+                width: 120
+                height: 40
+                text: "按键A触发"
+                print("按钮2点击")
+            }
+
+            button {
+                x: 10
+                y: 220
+                width: 120
+                height: 40
+                text: "点击触发"
+                print("按钮3点击")
+            }
+        }
+    }
+}

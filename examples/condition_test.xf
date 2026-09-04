@@ -1,0 +1,32 @@
+#ConditionTest {
+    fn main() {
+        int a = 5
+        int b = 10
+        
+        if a > b {
+            print("a is greater than b")
+        } else {
+            print("a is not greater than b")
+        }
+        
+        if a < b {
+            print("a is less than b")
+        }
+        
+        if a == 5 {
+            print("a is equal to 5")
+        }
+        
+        if a != b {
+            print("a is not equal to b")
+        }
+        
+        if a >= 5 {
+            print("a is greater than or equal to 5")
+        }
+        
+        if a <= 5 {
+            print("a is less than or equal to 5")
+        }
+    }
+}

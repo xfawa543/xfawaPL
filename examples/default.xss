@@ -1,0 +1,7 @@
+button {
+background-color: #2d7ff9
+text-color: white
+border-radius: 8
+border-width: 1
+border-color: #1d4fa0
+}

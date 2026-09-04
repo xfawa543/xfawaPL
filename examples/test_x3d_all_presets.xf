@@ -1,0 +1,77 @@
+#test_3d_presets {
+    fn main() {
+        window {
+            width: 950
+            height: 600
+            title: "XFAWA x3d All Presets - Real 3D Primitive Rendering"
+
+            class Primitives {
+                box1 = x3d.box(
+                    position=(0, 0, 0)
+                    size=(1, 1, 1)
+                    color=#FF8800
+                    rotation=0
+                )
+                sphere1 = x3d.sphere(
+                    position=(2, 0, 0)
+                    size=(1, 1, 1)
+                    color=#00FF00
+                    rotation=45
+                )
+                plane1 = x3d.plane(
+                    position=(4, 0, 0)
+                    size=(1, 1, 1)
+                    color=#4488FF
+                    rotation=30
+                )
+                cylinder1 = x3d.cylinder(
+                    position=(6, 0, 0)
+                    size=(1, 1, 1)
+                    color=#FF00FF
+                    rotation=60
+                )
+                capsule1 = x3d.capsule(
+                    position=(0, 0, 0)
+                    size=(1, 1, 1)
+                    color=#FFFF00
+                    rotation=90
+                )
+                cone1 = x3d.cone(
+                    position=(2, 0, 0)
+                    size=(1, 1, 1)
+                    color=#FF0000
+                    rotation=20
+                )
+                torus1 = x3d.torus(
+                    position=(4, 0, 0)
+                    size=(1, 1, 1)
+                    color=#00FFFF
+                    rotation=0
+                )
+                mesh1 = x3d.mesh(
+                    position=(6, 0, 0)
+                    size=(1, 1, 1)
+                    color=#FFFFFF
+                    rotation=120
+                )
+            }
+
+            text {
+                x: 10
+                y: 400
+                width: 930
+                height: 24
+                text: "x3d.box | sphere | plane | cylinder | capsule | cone | torus | mesh"
+            }
+
+            box {
+                id: infobox
+                x: 10
+                y: 430
+                width: 930
+                height: 150
+                text: "Each preset renders its actual 3D shape via SDF ray marching"
+            }
+        }
+    }
+}

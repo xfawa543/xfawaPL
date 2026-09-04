@@ -1,0 +1,14 @@
+#FiniteWhileTest { 
+fn main() {
+    print("Start finite while loop test")
+    
+    // Test finite while loop (with a counter)
+    int i = 0
+    while (i < 5) {
+        print(i)
+        i = i + 1
+    }
+    
+    print("While loop test completed")
+}
+}

@@ -1,0 +1,23 @@
+#apple {
+    fn eat() {
+        print("1. apple.eat called")
+    }
+    
+    fn sleep() {
+        print("2. apple.sleep called")
+    }
+    
+    fn run() {
+        print("3. apple.run called")
+    }
+}
+
+#test {
+    fn main() {
+        print("Start test")
+        apple.eat()
+        apple.sleep()
+        apple.run()
+        print("End test")
+    }
+}

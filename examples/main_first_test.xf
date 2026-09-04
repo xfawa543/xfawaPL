@@ -1,0 +1,13 @@
+#test {
+    fn main() {
+        print("First")
+        print("Second")
+        print("Third")
+    }
+}
+
+#apple {
+    fn eat() {
+        print("apple.eat")
+    }
+}

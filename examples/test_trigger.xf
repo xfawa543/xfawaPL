@@ -1,0 +1,51 @@
+// Test new animation trigger system
+// This program tests the new animation-trigger {} syntax
+
+#test_trigger {
+    fn main() {
+        print("Testing Animation Trigger System")
+        print("================================")
+        print("Click anywhere in window to trigger animation")
+
+        // Create a window with animated button
+        window {
+            width: 600
+            height: 400
+            title: "Animation Trigger Test"
+            color: white
+            style: "animation_trigger_test.xss"
+            
+            // Instructions
+            text {
+                x: 10
+                y: 10
+                text: "Click anywhere to trigger animation"
+            }
+            
+            // Animated button (triggered by window click)
+            button {
+                x: 10
+                y: 80
+                width: 100
+                height: 40
+                text: "Animated Button"
+                print("Button clicked!")
+            }
+            
+            // Position reference
+            text {
+                x: 200
+                y: 10
+                text: "Target X=200"
+            }
+            
+            text {
+                x: 10
+                y: 150
+                text: "Target Y=150"
+            }
+        }
+        
+        print("Animation trigger test completed!")
+    }
+}

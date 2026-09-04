@@ -1,0 +1,13 @@
+#BreakTest {
+    fn main() {
+        int i = 0
+        while (true) {
+            print("Loop iteration")
+            i = i + 1
+            if i >= 3 {
+                break
+            }
+        }
+        print("Loop exited after 3 iterations")
+    }
+}

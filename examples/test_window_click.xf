@@ -1,0 +1,28 @@
+#test_window_click {
+    fn main() {
+        print("测试window-click触发器")
+
+        window {
+            width: 800
+            height: 400
+            title: "Window Click Test"
+            color: white
+            style: "test_window_click.xss"
+
+            text {
+                x: 10
+                y: 10
+                text: "Click anywhere in window to trigger animation"
+            }
+
+            button {
+                x: 10
+                y: 100
+                width: 120
+                height: 40
+                text: "Animated Button"
+                print("Button clicked")
+            }
+        }
+    }
+}

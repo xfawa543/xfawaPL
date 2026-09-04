@@ -1,0 +1,16 @@
+#RndTest {
+    fn main() {
+        int a = [1, 2, 3, 4, 5]
+        
+        int n = rnd(a)
+        print(n)
+        
+        int m = rnd(1, 20)
+        print(m)
+        
+        int arr = [1...10]
+        for i in [1...5] {
+            print(rnd(arr))
+        }
+    }
+}

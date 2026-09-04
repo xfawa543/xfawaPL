@@ -1,0 +1,11 @@
+#test {
+    fn sayHello() {
+        print("Hello from sayHello")
+    }
+    
+    fn main() {
+        print("Start")
+        sayHello()
+        print("End")
+    }
+}

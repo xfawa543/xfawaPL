@@ -1,0 +1,27 @@
+#MainModule {
+    fn main() {
+        print("Block 1: main")
+        test1()
+        test2()
+    }
+}
+
+#TestModule1 {
+    fn test1() {
+        print("Block 2: test1")
+        int a = 100
+        if a == 100 {
+            print("a is 100")
+        }
+    }
+}
+
+#TestModule2 {
+    fn test2() {
+        print("Block 3: test2")
+        int b = 200
+        if b == 200 {
+            print("b is 200")
+        }
+    }
+}

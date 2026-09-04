@@ -1,0 +1,148 @@
+#ProbabilityGame {
+    fn main() {
+        window {
+            width: 480
+            height: 420
+            title: "Probability Battle"
+            color: lavender
+
+            text {
+                x: 130
+                y: 15
+                width: 220
+                height: 30
+                text: "Probability Battle"
+            }
+
+            box {
+                id: player_hp
+                x: 30
+                y: 60
+                width: 120
+                height: 40
+                text: "HP: 100"
+            }
+
+            box {
+                id: enemy_hp
+                x: 330
+                y: 60
+                width: 120
+                height: 40
+                text: "HP: 100"
+            }
+
+            text {
+                x: 200
+                y: 60
+                width: 80
+                height: 30
+                text: "VS"
+            }
+
+            box {
+                id: battle_log
+                x: 40
+                y: 115
+                width: 400
+                height: 80
+                text: "Choose your action!"
+            }
+
+            button {
+                x: 40
+                y: 210
+                width: 130
+                height: 50
+                text: "Attack"
+
+                int hit = rnd(1, 100)
+                if hit <= 80 {
+                    int dmg = rnd(10, 25)
+                    print("Hit! Damage: " + dmg, battle_log)
+                }
+                else {
+                    print("Missed!", battle_log)
+                }
+            }
+
+            button {
+                x: 175
+                y: 210
+                width: 130
+                height: 50
+                text: "Heavy Attack"
+
+                int hit = rnd(1, 100)
+                if hit <= 40 {
+                    int dmg = rnd(25, 50)
+                    print("Critical! Damage: " + dmg, battle_log)
+                }
+                else {
+                    print("Heavy missed!", battle_log)
+                }
+            }
+
+            button {
+                x: 310
+                y: 210
+                width: 130
+                height: 50
+                text: "Heal"
+
+                int heal = rnd(1, 100)
+                if heal <= 60 {
+                    int hp = rnd(15, 30)
+                    print("Healed: " + hp, battle_log)
+                }
+                else {
+                    print("Heal failed!", battle_log)
+                }
+            }
+
+            box {
+                id: status
+                x: 40
+                y: 280
+                width: 400
+                height: 50
+                text: "Status: Ready"
+            }
+
+            button {
+                x: 100
+                y: 350
+                width: 130
+                height: 45
+                text: "Dodge Test"
+
+                int dodge = rnd(1, 100)
+                if dodge <= 30 {
+                    print("Dodged!", status)
+                }
+                else {
+                    print("Failed to dodge", status)
+                }
+            }
+
+            button {
+                x: 250
+                y: 350
+                width: 130
+                height: 45
+                text: "Lucky Strike"
+
+                int luck = rnd(1, 100)
+                if luck <= 10 {
+                    print("LUCKY! Mega damage!", battle_log)
+                }
+                else if luck <= 50 {
+                    print("Normal hit", battle_log)
+                }
+                else {
+                    print("Nothing happened", battle_log)
+                }
+            }
+        }
+    }
+}

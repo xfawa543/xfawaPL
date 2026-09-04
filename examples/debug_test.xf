@@ -1,0 +1,18 @@
+#apple {
+    fn test1() {
+        print("apple.test1")
+    }
+    
+    fn test2() {
+        print("apple.test2")
+    }
+}
+
+#test {
+    fn main() {
+        print("Start")
+        apple.test1()
+        apple.test2()
+        print("End")
+    }
+}

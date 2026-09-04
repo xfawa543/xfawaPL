@@ -1,0 +1,18 @@
+#app {
+    fn main() {
+        window {
+            width: 480
+            height: 320
+            title: "xfawa button"
+            color: white
+
+            button {
+                x: 24
+                y: 24
+                width: 140
+                height: 40
+                text: "Click me"
+            }
+        }
+    }
+}

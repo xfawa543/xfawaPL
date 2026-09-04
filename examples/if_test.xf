@@ -1,0 +1,11 @@
+#if_test {
+    fn main() {
+    int a = 19
+    if a == 18 {
+        print("you 18")
+    }
+    else {
+        print("you no 18")
+        } 
+    }
+}

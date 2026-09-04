@@ -1,0 +1,52 @@
+#xfwindow {
+    fn pwp() {
+        window {
+            width: 320
+            height: 240
+            title: "xfwindow"
+            color: yellow
+        }
+    }
+}
+
+#tyhfgf {
+    fn awa() {
+        window {
+            width: 320
+            height: 240
+            title: "gfwindow"
+            color: red
+        }
+    }
+}
+
+#awqfg {
+    fn gg() {
+        window {
+            width: 320
+            height: 240
+            title: "ggwindow"
+            color: blue
+        }
+    }
+}
+
+#fnfgt {
+    fn hyh() {
+        window {
+            width: 320
+            height: 240
+            title: "hyhwindow"
+            color: green
+        }
+    }
+}
+
+#main {
+    fn main() {
+        pwp()
+        awa()
+        gg()
+        hyh()
+    }
+}

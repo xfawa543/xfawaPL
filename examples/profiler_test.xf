@@ -1,0 +1,58 @@
+#profiler_test {
+    fn main() {
+        print("Profiler test starting...")
+
+        window {
+            width: 640
+            height: 480
+            title: "Profiler Test"
+
+            class Scene3D {
+                camera = x3d.camera(
+                    position=(0, 5, 12)
+                    yaw=0
+                    pitch=15
+                    fov=60
+                )
+
+                box1 = x3d.box(
+                    position=(0, 0, 0)
+                    size=(2, 2, 2)
+                    color=#FF8800
+                )
+                sphere1 = x3d.sphere(
+                    position=(4, 0, 0)
+                    size=(2, 2, 2)
+                    color=#00FF00
+                )
+                cylinder1 = x3d.cylinder(
+                    position=(-4, 0, 0)
+                    size=(2, 2, 2)
+                    color=#0088FF
+                )
+                capsule1 = x3d.capsule(
+                    position=(0, 4, 0)
+                    size=(2, 2, 2)
+                    color=#FF00FF
+                )
+                cone1 = x3d.cone(
+                    position=(0, -4, 0)
+                    size=(2, 2, 2)
+                    color=#FFFF00
+                )
+                torus1 = x3d.torus(
+                    position=(4, 4, 0)
+                    size=(2, 2, 2)
+                    color=#00FFFF
+                )
+                plane1 = x3d.plane(
+                    position=(0, -2, 0)
+                    size=(20, 20, 20)
+                    color=#888888
+                )
+            }
+        }
+
+        print("Profiler test done.")
+    }
+}

@@ -1,0 +1,17 @@
+#else_if_test {
+    fn main() {
+        int a = 50
+        if a == 100 {
+            print("good")
+        }
+        else if a == 80 {
+            print("very good")
+        }
+        else if a == 60 {
+            print("half good")
+        }
+        else {
+            print("no good")
+        }
+    }
+}

@@ -1,0 +1,8 @@
+#test_implicit {
+    fn main() {
+        b = 10
+        print(b)
+        b = b + 5
+        print(b)
+    }
+}

@@ -1,0 +1,39 @@
+#test_3d {
+    fn main() {
+        window {
+            width: 900
+            height: 700
+            title: "XFAWA x3d 3D Rendering Demo"
+
+            class Scene3D {
+                mushroom = x3d.box(
+                    position=(0, 0, 0)
+                    size=(2, 2, 2)
+                    color=#FF8800
+                )
+                tree = x3d.sphere(
+                    position=(3, 0, 0)
+                    size=(2, 2, 2)
+                    color=#00FF00
+                )
+            }
+
+            text {
+                x: 10
+                y: 410
+                width: 880
+                height: 24
+                text: "x3d.box (Mushroom SDF) | x3d.sphere (Tree 3D)"
+            }
+
+            box {
+                id: infobox
+                x: 10
+                y: 440
+                width: 880
+                height: 240
+                text: "x3d Rendering - independent renderer (no OpenGL/Vulkan)"
+            }
+        }
+    }
+}

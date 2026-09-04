@@ -1,0 +1,40 @@
+// 测试中文显示
+#test_chinese {
+    fn main() {
+        print("测试中文显示")
+
+        window {
+            width: 600
+            height: 400
+            title: "中文测试"
+            color: white
+
+            text {
+                x: 10
+                y: 10
+                text: "这是中文测试文字"
+            }
+
+            text {
+                x: 10
+                y: 50
+                text: "括号里的文字：(测试括号)"
+            }
+
+            button {
+                x: 10
+                y: 100
+                width: 150
+                height: 40
+                text: "中文按钮"
+                print("按钮被点击")
+            }
+
+            text {
+                x: 10
+                y: 160
+                text: "Reference: Static Text (No Animation)"
+            }
+        }
+    }
+}
