@@ -124,4 +124,4 @@ However, the project's architecture, language design, feature decisions, and lon
 MIT License.
 
 See LICENSE for details.
-If you want to contribute code, see CONTRIBUTING.md and XCLA.md.
+Code Contribution: If you wish to contribute code to the project, please read and follow before submitting your contribution [CONTRIBUTING.md] and [XCLA.md] in.
