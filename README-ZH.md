@@ -125,3 +125,4 @@ xfawa 不拘泥于现有的语言惯例，而是专注于探索语言结构和�
 MIT 许可证。
 
 详情请参见 LICENSE 文件。
+如果想贡献代码请参阅 CONTRIBUTING.md 和 XCLA.md。
