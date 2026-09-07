@@ -4,7 +4,7 @@ xfawa Contributor License Agreement
 
 Version 1.0
 
-Effective Date: [YYYY-MM-DD]
+Effective Date: [2026-09-07]
 
 ---
 
